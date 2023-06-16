@@ -1,6 +1,6 @@
 # Brave Manager
 
-A tool for quickly uninstalling all copies of Brave from a system.
+A tool for quickly uninstalling all copies of Brave from a Windows system.
 
 ## Installation
 
