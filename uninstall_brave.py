@@ -36,7 +36,7 @@ class UninstallNeedsAdminError(Exception):
         return f'Cannot uninstall {self.args[0]}. Please re-run as admin.'
 
 def main():
-    channels, user_or_machine = parse_args()
+    channels, user_or_machine, delete_profiles = parse_args()
     for is_user in user_or_machine:
         user_or_machine_desc = 'user' if is_user else 'machine'
         for channel in channels:
@@ -55,6 +55,11 @@ def main():
         else:
             if was_installed:
                 print(f'Uninstalled Brave Update ({user_or_machine_desc}).')
+    if delete_profiles:
+        for channel in channels:
+            if delete_user_data_dir(channel):
+                app_name = BRAVE_APP_NAMES[channel]
+                print(f'Deleted user data directory for {app_name}.')
 
 def uninstall_brave(is_user, channel):
     was_installed = False
@@ -120,6 +125,16 @@ def uninstall_brave_update(is_user):
         return True
     return False
 
+def delete_user_data_dir(channel):
+    app_name = BRAVE_APP_NAMES[channel]
+    user_data_dir = \
+        join(os.getenv('LOCALAPPDATA'), 'BraveSoftware', app_name, 'User Data')
+    try:
+        rmtree(user_data_dir)
+    except FileNotFoundError:
+        return False
+    return True
+
 def check_admin(is_user, app_name):
     if not is_user and not is_user_an_admin():
         raise UninstallNeedsAdminError(app_name)
@@ -178,6 +193,7 @@ def parse_args():
     parser.add_argument(
         '--user_or_machine', choices=['both', 'user', 'machine'], default='both'
     )
+    parser.add_argument('--delete_profiles', action='store_true')
     args = parser.parse_args()
 
     if args.channel == 'all':
@@ -193,7 +209,7 @@ def parse_args():
     if args.user_or_machine in {'both', 'machine'}:
         uninstall_user_or_machine.append(False)
 
-    return channels, uninstall_user_or_machine
+    return channels, uninstall_user_or_machine, args.delete_profiles
 
 if __name__ == '__main__':
     main()
