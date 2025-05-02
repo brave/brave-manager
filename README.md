@@ -31,3 +31,15 @@ with `./` to execute it:
 ```
 
 The command will likely prompt for your password.
+
+---
+#### macOS Housekeeping: 
+If you want a clean slate, you can run `brave-clean-slate.sh`. It removes configs, extensions and bookmarks by running:
+
+```
+~/Downloads/brave-clean-slate.sh
+```
+or
+```
+./brave-clean-slate.sh
+```
