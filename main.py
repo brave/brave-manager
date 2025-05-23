@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from os import makedirs, getpid, listdir
-from os.path import dirname, exists, join
+from os.path import dirname, exists, join, getsize
 from plistlib import load
 from shutil import rmtree, copytree
 from subprocess import run, DEVNULL
@@ -8,6 +8,7 @@ from time import time
 from tqdm import tqdm
 
 import json
+import os
 import questionary
 import requests
 import sys
@@ -43,6 +44,8 @@ def main():
                 return
             Launch(channel[0])()
             return
+        elif main_action == 'clear_cache':
+            actions.append(ClearCache())
         if ask_confirm_actions(actions):
             for action in actions:
                 action()
@@ -81,13 +84,25 @@ class Launch:
     def __call__(self):
         run(['open', '-a', get_app_dir(self.channel)])
 
+class ClearCache:
+    def __str__(self):
+        return 'Clear the cache'
+    def __call__(self):
+        try:
+            rmtree(CACHE_DIR)
+        except FileNotFoundError:
+            pass
+
 def ask_main_action():
     message = 'What do you want to do?'
     instruction = '(press ctrl+c to cancel)'
+    cache_size_bytes = get_cache_size()
+    cache_size_text = f'{cache_size_bytes // (1024 * 1024)} MB'
     choices = {
         'Install a new version of Brave': 'install',
         'Uninstall Brave': 'uninstall',
-        'Launch Brave': 'launch'
+        'Launch Brave': 'launch',
+        f'Clear the cache ({cache_size_text})': 'clear_cache'
     }
     choice_text = select(message, choices, instruction)
     if choice_text is None:
@@ -158,6 +173,13 @@ def ask_confirm_actions(actions):
     choices = ['yes', 'no']
     choice = select(message, choices)
     return choice == choices[0]
+
+def get_cache_size():
+    result = 0
+    for parent_dir, _, files in os.walk(CACHE_DIR):
+        for file_name in files:
+            result += getsize(join(parent_dir, file_name))
+    return result
 
 def get_releases(
     channel, public_only,
