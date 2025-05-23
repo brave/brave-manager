@@ -150,7 +150,7 @@ def ask_dmg_to_install(channel, public_only):
         tag_name = select(message, releases)
         if tag_name is None:
             raise KeyboardInterrupt
-        dmgs = releases[tag_name]
+        dmgs = dict(sorted(releases[tag_name].items()))
         message = 'Which dmg do you want to install?'
         dmg_name = select(message, dmgs)
         if dmg_name:
