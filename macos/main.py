@@ -214,8 +214,6 @@ def _cache_releases():
     rest_is_in_cache = False
     try:
         for page_results in _paginate_releases():
-            if rest_is_in_cache:
-                break
             for release in page_results:
                 # Need str(...) because we want to use cache_id as a key in
                 # JSON, where keys must be strings.
@@ -239,6 +237,8 @@ def _cache_releases():
                     }
                     new_items[cache_id] = release_thin
                     yield release_thin
+            if rest_is_in_cache:
+                break
         yield from cache.values()
     except GeneratorExit:
         cache.update(new_items)
