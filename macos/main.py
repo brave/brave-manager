@@ -14,7 +14,7 @@ import requests
 import sys
 
 CHANNELS = ('nightly', 'beta', 'release')
-CACHE_DIR = join(dirname(__file__), '.cache')
+CACHE_DIR = join(dirname(dirname(__file__)), '.cache')
 MAX_NUM_CHOICES_SUPPORTED_BY_QUESTIONARY_SELECT = 36
 
 def main():
