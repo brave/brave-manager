@@ -1,6 +1,6 @@
 from impl import brave, cache, CHANNELS
 from impl.actions import Uninstall, Install, Launch, ClearCache
-from impl.releases import get_releases
+from impl.releases import get_releases, group_by_minor_version
 from impl.util import select
 
 MAX_NUM_CHOICES_SUPPORTED_BY_QUESTIONARY_SELECT = 36
@@ -94,12 +94,20 @@ def ask_dmg_to_install(channel, public_only):
     releases = get_releases(
         channel, public_only, MAX_NUM_CHOICES_SUPPORTED_BY_QUESTIONARY_SELECT
     )
+    minor_versions = group_by_minor_version(releases)
     while True:
-        message = 'Which version do you want to install?'
-        version = select(message, releases)
-        if version is None:
+        message = 'Which release do you want to install?'
+        minor_version = select(message, minor_versions)
+        if minor_version is None:
             raise KeyboardInterrupt
-        dmgs = dict(sorted(releases[version].items()))
+
+        exact_versions = minor_versions[minor_version]
+        message = 'Which exact version?'
+        version = select(message, exact_versions)
+        if version is None:
+            continue
+
+        dmgs = dict(sorted(exact_versions[version].items()))
         message = 'Which dmg do you want to install?'
         dmg_name = select(message, dmgs)
         if dmg_name:

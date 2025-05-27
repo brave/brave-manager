@@ -1,3 +1,4 @@
+from collections import defaultdict
 from impl import cache
 
 import json
@@ -23,6 +24,14 @@ def get_releases(channel, public_only, max_num):
             result[version] = dmgs_this_version
             if len(result) == max_num:
                 break
+    return result
+
+def group_by_minor_version(releases):
+    result = defaultdict(dict)
+    for version, dmgs in releases.items():
+        minor_version = version.rsplit('.', 1)[0]
+        minor_version_key = f'{minor_version}.x'
+        result[minor_version_key][version] = dmgs
     return result
 
 def _cache_releases():
