@@ -1,0 +1,1 @@
+CHANNELS = ('nightly', 'beta', 'release')

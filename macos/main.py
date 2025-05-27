@@ -1,10 +1,9 @@
 from contextlib import contextmanager
-from impl import cache
+from impl import brave, cache, CHANNELS
 from impl.releases import get_releases
 from os import getpid, listdir
 from os.path import exists, join
-from plistlib import load
-from shutil import rmtree, copytree
+from shutil import copytree
 from subprocess import run, DEVNULL
 from time import time
 from tqdm import tqdm
@@ -13,7 +12,6 @@ import questionary
 import requests
 import sys
 
-CHANNELS = ('nightly', 'beta', 'release')
 MAX_NUM_CHOICES_SUPPORTED_BY_QUESTIONARY_SELECT = 36
 
 def main():
@@ -58,7 +56,7 @@ class Uninstall:
         return f'Uninstall {self.channel.title()}'
     def __call__(self):
         with print_done(f'Uninstalling {self.channel.title()}'):
-            rmtree(get_app_dir(self.channel))
+            brave.uninstall(self.channel)
 
 class Install:
     def __init__(self, channel, version, dmg_url):
@@ -80,7 +78,7 @@ class Launch:
     def __str__(self):
         return f'Launch {self.channel.title()}'
     def __call__(self):
-        run(['open', '-a', get_app_dir(self.channel)])
+        brave.launch(self.channel)
 
 class ClearCache:
     def __str__(self):
@@ -105,7 +103,7 @@ def ask_main_action():
     return choices[choice_text]
 
 def ask_channel(installed_only=False):
-    installed_channels = get_installed_channels()
+    installed_channels = brave.get_installed_channels()
     choices = {}
     for channel in CHANNELS:
         try:
@@ -170,33 +168,6 @@ def ask_confirm_actions(actions):
     choices = ['yes', 'no']
     choice = select(message, choices)
     return choice == choices[0]
-
-def get_installed_channels():
-    result = {}
-    for channel in CHANNELS:
-        app_dir = get_app_dir(channel)
-        if not exists(app_dir):
-            continue
-        try:
-            version = get_version(app_dir)
-        except FileNotFoundError:
-            version = None
-        result[channel] = version
-    return result
-
-def get_app_dir(channel):
-    if channel == 'release':
-        suffix = ''
-    else:
-        suffix = f' {channel.title()}'
-    return join('/Applications', f'Brave Browser{suffix}.app')
-
-def get_version(app_dir):
-    info_plist_path = join(app_dir, 'Contents', 'Info.plist')
-    with open(info_plist_path, 'rb') as f:
-        plist = load(f)
-    version_chromium = plist['CFBundleShortVersionString']
-    return version_chromium.split('.', 1)[1]
 
 def select(message, choices, instruction=' '):
     question = questionary.select(
