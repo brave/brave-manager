@@ -26,10 +26,10 @@ def main():
             if not channel:
                 return
             public_only = ask_public_only()
-            tag_name, dmg_url = ask_dmg_to_install(channel, public_only)
+            version, dmg_url = ask_dmg_to_install(channel, public_only)
             if is_installed:
                 actions.append(Uninstall(channel))
-            actions.append(Install(channel, tag_name, dmg_url))
+            actions.append(Install(channel, version, dmg_url))
             launch_after_install = ask_launch_after_install()
             if launch_after_install:
                 actions.append(Launch(channel))
@@ -62,12 +62,12 @@ class Uninstall:
             rmtree(get_app_dir(self.channel))
 
 class Install:
-    def __init__(self, channel, tag_name, dmg_url):
+    def __init__(self, channel, version, dmg_url):
         self.channel = channel
-        self.tag_name = tag_name
+        self.version = version
         self.dmg_url = dmg_url
     def __str__(self):
-        return f'Install {self.channel.title()} {self.tag_name}'
+        return f'Install {self.channel.title()} {self.version}'
     def __call__(self):
         cache_path = join(CACHE_DIR, self.dmg_url.split('//', 1)[1])
         if not exists(cache_path):
@@ -147,14 +147,14 @@ def ask_dmg_to_install(channel, public_only):
     releases = get_releases(channel, public_only)
     while True:
         message = 'Which version do you want to install?'
-        tag_name = select(message, releases)
-        if tag_name is None:
+        version = select(message, releases)
+        if version is None:
             raise KeyboardInterrupt
-        dmgs = dict(sorted(releases[tag_name].items()))
+        dmgs = dict(sorted(releases[version].items()))
         message = 'Which dmg do you want to install?'
         dmg_name = select(message, dmgs)
         if dmg_name:
-            return tag_name, dmgs[dmg_name]
+            return version, dmgs[dmg_name]
 
 def ask_launch_after_install():
     message = 'Should the app be launched after installation?'
@@ -192,12 +192,15 @@ def get_releases(
         if public_only and release['prerelease']:
             continue
         tag_name = release['tag_name']
+        if not tag_name.startswith('v'):
+            continue
+        version = tag_name[1:]
         dmgs_this_version = {
             asset['name']: asset['browser_download_url']
             for asset in release['assets'] if asset['name'].endswith('.dmg')
         }
         if dmgs_this_version:
-            result[tag_name] = dmgs_this_version
+            result[version] = dmgs_this_version
             if len(result) == max_num:
                 break
     return result
