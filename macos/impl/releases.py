@@ -53,19 +53,7 @@ def _cache_releases():
                     rest_is_in_cache = True
                     break
                 else:
-                    release_thin = {
-                        'name': release['name'],
-                        'tag_name': release['tag_name'],
-                        'prerelease': release['prerelease'],
-                        'assets': [
-                            {
-                                'name': asset['name'],
-                                'browser_download_url':
-                                    asset['browser_download_url']
-                            }
-                            for asset in release['assets']
-                        ]
-                    }
+                    release_thin = _trim_github_release(release)
                     new_items[cache_id] = release_thin
                     yield release_thin
             if rest_is_in_cache:
@@ -75,6 +63,21 @@ def _cache_releases():
         cached_releases.update(new_items)
         with open(cache_path, 'w') as f:
             json.dump(cached_releases, f)
+
+def _trim_github_release(release):
+    return {
+        'name': release['name'],
+        'tag_name': release['tag_name'],
+        'prerelease': release['prerelease'],
+        'assets': [
+            {
+                'name': asset['name'],
+                'browser_download_url':
+                    asset['browser_download_url']
+            }
+            for asset in release['assets']
+        ]
+    }
 
 def _paginate_releases():
     for page in range(1, sys.maxsize):
