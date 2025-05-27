@@ -1,6 +1,7 @@
 from contextlib import contextmanager
-from os import makedirs, getpid, listdir
-from os.path import dirname, exists, join, getsize
+from impl import cache
+from os import getpid, listdir
+from os.path import exists, join
 from plistlib import load
 from shutil import rmtree, copytree
 from subprocess import run, DEVNULL
@@ -8,13 +9,11 @@ from time import time
 from tqdm import tqdm
 
 import json
-import os
 import questionary
 import requests
 import sys
 
 CHANNELS = ('nightly', 'beta', 'release')
-CACHE_DIR = join(dirname(dirname(__file__)), '.cache')
 MAX_NUM_CHOICES_SUPPORTED_BY_QUESTIONARY_SELECT = 36
 
 def main():
@@ -69,9 +68,8 @@ class Install:
     def __str__(self):
         return f'Install {self.channel.title()} {self.version}'
     def __call__(self):
-        cache_path = join(CACHE_DIR, self.dmg_url.split('//', 1)[1])
+        cache_path = cache.prepare(self.dmg_url.split('//', 1)[1])
         if not exists(cache_path):
-            makedirs(dirname(cache_path), exist_ok=True)
             download_file(self.dmg_url, cache_path)
         with print_done(f'Installing {self.channel.title()}'):
             install_dmg(cache_path)
@@ -88,15 +86,12 @@ class ClearCache:
     def __str__(self):
         return 'Clear the cache'
     def __call__(self):
-        try:
-            rmtree(CACHE_DIR)
-        except FileNotFoundError:
-            pass
+        cache.clear()
 
 def ask_main_action():
     message = 'What do you want to do?'
     instruction = '(press ctrl+c to cancel)'
-    cache_size_bytes = get_cache_size()
+    cache_size_bytes = cache.get_size()
     cache_size_text = f'{cache_size_bytes // (1024 * 1024)} MB'
     choices = {
         'Install a new version of Brave': 'install',
@@ -174,13 +169,6 @@ def ask_confirm_actions(actions):
     choice = select(message, choices)
     return choice == choices[0]
 
-def get_cache_size():
-    result = 0
-    for parent_dir, _, files in os.walk(CACHE_DIR):
-        for file_name in files:
-            result += getsize(join(parent_dir, file_name))
-    return result
-
 def get_releases(
     channel, public_only,
     max_num=MAX_NUM_CHOICES_SUPPORTED_BY_QUESTIONARY_SELECT
@@ -206,13 +194,12 @@ def get_releases(
     return result
 
 def _cache_releases():
-    makedirs(CACHE_DIR, exist_ok=True)
-    cache_path = join(CACHE_DIR, 'releases.json')
+    cache_path = cache.prepare('releases.json')
     try:
         with open(cache_path, 'rb') as f:
-            cache = json.load(f)
+            cached_releases = json.load(f)
     except FileNotFoundError:
-        cache = {}
+        cached_releases = {}
     new_items = {}
     rest_is_in_cache = False
     try:
@@ -221,7 +208,7 @@ def _cache_releases():
                 # Need str(...) because we want to use cache_id as a key in
                 # JSON, where keys must be strings.
                 cache_id = str(release['id'])
-                if cache_id in cache:
+                if cache_id in cached_releases:
                     rest_is_in_cache = True
                     break
                 else:
@@ -242,11 +229,11 @@ def _cache_releases():
                     yield release_thin
             if rest_is_in_cache:
                 break
-        yield from cache.values()
+        yield from cached_releases.values()
     except GeneratorExit:
-        cache.update(new_items)
+        cached_releases.update(new_items)
         with open(cache_path, 'w') as f:
-            json.dump(cache, f)
+            json.dump(cached_releases, f)
 
 def _paginate_releases():
     for page in range(1, sys.maxsize):
