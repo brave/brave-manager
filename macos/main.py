@@ -1,7 +1,8 @@
 from impl import brave, cache, CHANNELS
 from impl.releases import get_releases
-from impl.util import select, download_file, install_dmg, print_done
+from impl.util import select, FileDownloader, install_dmg, print_done
 from os.path import exists
+from tqdm import tqdm
 
 MAX_NUM_CHOICES_SUPPORTED_BY_QUESTIONARY_SELECT = 36
 
@@ -159,6 +160,15 @@ def ask_confirm_actions(actions):
     choices = ['yes', 'no']
     choice = select(message, choices)
     return choice == choices[0]
+
+def download_file(url, path):
+    print(f'Downloading {url}:')
+    downloader = FileDownloader(url, path)
+    total_size = downloader.start()
+    progress_bar = tqdm(total=total_size, unit='iB', unit_scale=True)
+    for num_bytes in downloader.run():
+        progress_bar.update(num_bytes)
+    progress_bar.close()
 
 if __name__ == "__main__":
     main()

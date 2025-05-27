@@ -16,17 +16,19 @@ def select(message, choices, instruction=' '):
     )
     return question.ask()
 
-def download_file(url, path):
-    print(f'Downloading {url}:')
-    response = requests.get(url, stream=True)
-    total_size = int(response.headers.get('content-length', 0))
-    block_size = 1024
-    progress_bar = tqdm(total=total_size, unit='iB', unit_scale=True)
-    with open(path, 'wb') as f:
-        for data in response.iter_content(block_size):
-            progress_bar.update(len(data))
-            f.write(data)
-    progress_bar.close()
+class FileDownloader:
+    def __init__(self, url, path):
+        self.url = url
+        self.path = path
+        self.response = None
+    def start(self):
+        self.response = requests.get(self.url, stream=True)
+        return int(self.response.headers.get('content-length', 0))
+    def run(self, block_size=1024):
+        with open(self.path, 'wb') as f:
+            for data in self.response.iter_content(block_size):
+                f.write(data)
+                yield len(data)
 
 def install_dmg(dmg_path):
     mount_point = f'/Volumes/temp_{getpid()}_{int(time())}'
