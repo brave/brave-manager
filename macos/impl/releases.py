@@ -1,20 +1,21 @@
 from collections import defaultdict
 from math import ceil
-from os.path import exists, join, dirname
+from os.path import exists, join, dirname, basename
 from shutil import copy
 from time import time
 from impl import cache
 from impl.util import extract_version
+from zipfile import ZipFile, ZIP_DEFLATED
 
 import json
 import requests
 import sys
 
 # Github's API only gives us the latest 1000 releases. We remember older
-# releases in this JSON file. It can be updated with
+# releases in this compressed JSON file. It can be updated with
 # update_historic_releases(...) below. A CLI to this function is in
 # `update_historic_releases.py`.
-HISTORIC_RELEASES = join(dirname(__file__), 'historic-releases.json')
+HISTORIC_RELEASES = join(dirname(__file__), 'historic-releases.zip')
 
 def get_releases(channel, public_only, max_num):
     result = {}
@@ -46,8 +47,8 @@ def group_by_minor_version(releases):
     return result
 
 def update_historic_releases(tags, github_token):
-    with open(HISTORIC_RELEASES) as f:
-        historic_releases = json.load(f)
+    zipped_json = ZippedJson(HISTORIC_RELEASES)
+    historic_releases = zipped_json.read()
     try:
         for tag in tags:
             if tag in historic_releases:
@@ -67,13 +68,14 @@ def update_historic_releases(tags, github_token):
             response.raise_for_status()
             historic_releases[tag] = _trim_github_release(response.json())
     finally:
-        with open(HISTORIC_RELEASES, 'w') as f:
-            json.dump(historic_releases, f)
+        zipped_json.write(historic_releases)
 
 def _cache_releases():
     cache_path = cache.prepare('releases.json')
     if not exists(cache_path):
-        copy(HISTORIC_RELEASES, cache_path)
+        historic_releases = ZippedJson(HISTORIC_RELEASES).read()
+        with open(cache_path, 'w') as f:
+            json.dump(historic_releases, f)
     with open(cache_path) as f:
         cached_releases = json.load(f)
     new_items = {}
@@ -121,3 +123,23 @@ def _paginate_releases():
         response = requests.get(url)
         response.raise_for_status()
         yield response.json()
+
+class ZippedJson:
+
+    def __init__(self, zip_path):
+        self.zip_path = zip_path
+
+    def read(self):
+        with self._open_zip('r') as zf:
+            with zf.open(self._get_json_name_in_zip()) as f:
+                return json.load(f)
+
+    def write(self, data):
+        with self._open_zip('w', compression=ZIP_DEFLATED) as zf:
+            zf.writestr(self._get_json_name_in_zip(), json.dumps(data))
+
+    def _open_zip(self, *args, **kwargs):
+        return ZipFile(self.zip_path, *args, **kwargs)
+
+    def _get_json_name_in_zip(self):
+        return basename(self.zip_path).replace('.zip', '.json')

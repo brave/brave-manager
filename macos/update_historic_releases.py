@@ -1,6 +1,6 @@
 """
-This script updates the historic releases JSON file. It's used to keep track
-of older releases that are not available via the Github API.
+This script updates the historic releases compressed JSON file. It's used to
+keep track of older releases that are not available via the Github API.
 
 It's run manually, and the output is committed to the repo.
 
