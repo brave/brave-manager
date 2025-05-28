@@ -4,7 +4,6 @@ from os.path import join
 from shutil import copytree
 from subprocess import run, DEVNULL
 from time import time
-from tqdm import tqdm
 
 import questionary
 import requests
