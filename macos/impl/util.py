@@ -7,7 +7,14 @@ from time import time
 
 import questionary
 import requests
+import re
 import sys
+
+def extract_version(tag_name):
+    match = re.match(r'v(\d+\.\d+\.\d+)', tag_name)
+    if not match:
+        raise ValueError(f'Invalid tag name: {tag_name}')
+    return match.group(1)
 
 def select(message, choices, instruction=' '):
     question = questionary.select(
