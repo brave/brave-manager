@@ -17,7 +17,7 @@ import sys
 # `update_historic_releases.py`.
 HISTORIC_RELEASES = join(dirname(__file__), 'historic-releases.zip')
 
-def get_releases(channel, public_only, max_num):
+def get_releases(channel, public_only):
     result = {}
     for release in _cache_releases():
         if not release['name'].startswith(channel.title()):
@@ -34,8 +34,6 @@ def get_releases(channel, public_only, max_num):
         }
         if dmgs_this_version:
             result[version] = dmgs_this_version
-            if len(result) == max_num:
-                break
     return result
 
 def group_by_minor_version(releases):
@@ -121,6 +119,15 @@ def _paginate_releases():
         url = f'https://api.github.com/repos/brave/brave-browser/releases?' \
               f'per_page=100&page={page}'
         response = requests.get(url)
+        if page == 11 and response.status_code == 422:
+            return
+            raise RuntimeError(
+                f'The GitHub API only returns 1000 releases but more were '
+                f'requested. This indicates that {HISTORIC_RELEASES} is out of '
+                f'date. Please update brave-manager or run '
+                f'`python update_historic_releases.py` in its installation '
+                f'directory.'
+            )
         response.raise_for_status()
         yield response.json()
 
