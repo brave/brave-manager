@@ -2,9 +2,6 @@ from impl import brave, cache, CHANNELS
 from impl.actions import Uninstall, Install, Launch, ClearCache
 from impl.releases import get_releases, group_by_minor_version
 from impl.util import select
-from itertools import islice
-
-MAX_NUM_CHOICES_SUPPORTED_BY_QUESTIONARY_SELECT = 36
 
 def main():
     try:
@@ -96,10 +93,7 @@ def ask_dmg_to_install(channel, public_only):
     minor_versions = group_by_minor_version(releases)
     while True:
         message = 'Which release do you want to install?'
-        available_minor_versions = list(minor_versions)[
-            :MAX_NUM_CHOICES_SUPPORTED_BY_QUESTIONARY_SELECT
-        ]
-        minor_version = select(message, available_minor_versions)
+        minor_version = select(message, minor_versions)
         if minor_version is None:
             raise KeyboardInterrupt
 

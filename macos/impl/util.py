@@ -10,6 +10,8 @@ import requests
 import re
 import sys
 
+MAX_NUM_CHOICES_SUPPORTED_BY_QUESTIONARY_SELECT = 36
+
 def extract_version(tag_name):
     match = re.match(r'v(\d+\.\d+\.\d+)', tag_name)
     if not match:
@@ -17,8 +19,10 @@ def extract_version(tag_name):
     return match.group(1)
 
 def select(message, choices, instruction=' '):
+    use_shortcuts = \
+        len(choices) <= MAX_NUM_CHOICES_SUPPORTED_BY_QUESTIONARY_SELECT
     question = questionary.select(
-        message, choices, use_shortcuts=True, instruction=instruction
+        message, choices, use_shortcuts=use_shortcuts, instruction=instruction
     )
     return question.ask()
 
