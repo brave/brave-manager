@@ -93,13 +93,13 @@ def ask_dmg_to_install(channel, public_only):
     minor_versions = group_by_minor_version(releases)
     while True:
         message = 'Which release do you want to install?'
-        minor_version = select(message, minor_versions)
+        minor_version = select(message, sort_minor_versions(minor_versions))
         if minor_version is None:
             raise KeyboardInterrupt
 
         exact_versions = minor_versions[minor_version]
         message = 'Which exact version?'
-        version = select(message, exact_versions)
+        version = select(message, sort_versions(exact_versions))
         if version is None:
             continue
 
@@ -126,6 +126,14 @@ def ask_confirm_actions(actions):
     choices = ['yes', 'no']
     choice = select(message, choices)
     return choice == choices[0]
+
+def sort_minor_versions(versions):
+    parse_minor_version = lambda v: tuple(map(int, v.split('.')[:2]))
+    return sorted(versions, key=parse_minor_version, reverse=True)
+
+def sort_versions(versions):
+    parse_version = lambda v: tuple(map(int, v.split('.')))
+    return sorted(versions, key=parse_version, reverse=True)
 
 if __name__ == "__main__":
     main()
