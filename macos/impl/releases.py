@@ -44,8 +44,10 @@ def group_by_minor_version(releases):
         result[minor_version_key][version] = dmgs
     return result
 
-def update_historic_releases(tags, github_token):
+def update_historic_releases(tags, github_token, clear_existing=False):
     zipped_json = ZippedJson(HISTORIC_RELEASES)
+    if clear_existing:
+        zipped_json.write({})
     historic_releases = zipped_json.read()
     try:
         for tag in tags:
@@ -64,7 +66,9 @@ def update_historic_releases(tags, github_token):
             if response.status_code == 404:
                 continue
             response.raise_for_status()
-            historic_releases[tag] = _trim_github_release(response.json())
+            release = response.json()
+            cache_id = _get_cache_id(release)
+            historic_releases[cache_id] = _trim_github_release(release)
     finally:
         zipped_json.write(historic_releases)
 
@@ -81,9 +85,7 @@ def _cache_releases():
     try:
         for page_results in _paginate_releases():
             for release in page_results:
-                # Need str(...) because we want to use cache_id as a key in
-                # JSON, where keys must be strings.
-                cache_id = str(release['id'])
+                cache_id = _get_cache_id(release)
                 if cache_id in cached_releases:
                     rest_is_in_cache = True
                     break
@@ -98,6 +100,11 @@ def _cache_releases():
         cached_releases.update(new_items)
         with open(cache_path, 'w') as f:
             json.dump(cached_releases, f)
+
+def _get_cache_id(release):
+    # Need str(...) because we want to use cache_id as a key in JSON, where keys
+    # must be strings.
+    return str(release['id'])
 
 def _trim_github_release(release):
     return {
