@@ -1,5 +1,6 @@
-from impl import brave, cache, CHANNELS
-from impl.actions import Uninstall, Install, Launch, ClearCache
+from impl import brave, cache, CHANNELS, updater
+from impl.actions import Uninstall, Install, Launch, ClearCache, \
+    UninstallUpdater
 from impl.releases import get_releases, group_by_minor_version
 from impl.util import select
 
@@ -30,6 +31,15 @@ def main():
                 return
             Launch(channel[0])()
             return
+        elif main_action == 'uninstall_updater':
+            installed_updaters = updater.get_installed_updaters()
+            if not installed_updaters:
+                print("You don't have Brave Updater installed.")
+                return
+            to_uninstall = ask_which_updater_to_uninstall(installed_updaters)
+            if not to_uninstall:
+                return
+            actions.append(UninstallUpdater(to_uninstall))
         elif main_action == 'clear_cache':
             actions.append(ClearCache())
         if ask_confirm_actions(actions):
@@ -47,6 +57,7 @@ def ask_main_action():
         'Install a new version of Brave': 'install',
         'Uninstall Brave': 'uninstall',
         'Launch Brave': 'launch',
+        'Uninstall Brave Updater': 'uninstall_updater',
         f'Clear the cache ({cache_size_text})': 'clear_cache'
     }
     choice_text = select(message, choices, instruction)
@@ -115,6 +126,13 @@ def ask_launch_after_install():
     if choice is None:
         raise KeyboardInterrupt
     return choice == 'yes'
+
+def ask_which_updater_to_uninstall(installed_updaters):
+    message = 'Which updater do you want to uninstall?'
+    choice = select(message, installed_updaters)
+    if choice is None:
+        raise KeyboardInterrupt
+    return choice
 
 def ask_confirm_actions(actions):
     message_parts = ['I will perform the following actions:']

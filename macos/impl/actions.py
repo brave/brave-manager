@@ -1,4 +1,4 @@
-from impl import brave, cache
+from impl import brave, cache, updater
 from impl.util import install_dmg, print_done, FileDownloader
 from os.path import exists
 from tqdm import tqdm
@@ -33,6 +33,14 @@ class Launch:
         return f'Launch {self.channel.title()}'
     def __call__(self):
         brave.launch(self.channel)
+
+class UninstallUpdater:
+    def __init__(self, scope):
+        self.scope = scope
+    def __str__(self):
+        return f'Uninstall Brave Updater ({self.scope})'
+    def __call__(self):
+        updater.uninstall(self.scope)
 
 class ClearCache:
     def __str__(self):
