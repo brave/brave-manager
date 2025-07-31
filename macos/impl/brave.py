@@ -1,5 +1,6 @@
 from impl import CHANNELS
-from os.path import exists, join, expanduser
+from os import remove
+from os.path import exists, isdir, join, expanduser
 from plistlib import load
 from shutil import rmtree
 from subprocess import run
@@ -40,18 +41,30 @@ def get_version(app_dir):
 def get_existing_profiles():
     result = []
     for channel in CHANNELS:
-        if exists(get_profile_dir(channel)):
-            result.append(channel)
+        for path in get_profile_paths(channel):
+            if exists(path):
+                result.append(channel)
+                break
     return result
 
 def delete_profile(channel):
-    rmtree(get_profile_dir(channel))
+    for path in get_profile_paths(channel):
+        if isdir(path):
+            rmtree(path)
+        elif exists(path):
+            remove(path)
 
-def get_profile_dir(channel):
+def get_profile_paths(channel):
     if channel == 'release':
-        suffix = ''
+        dash_suffix = ''
+        dot_suffix = ''
     else:
-        suffix = f'-{channel.title()}'
-    return join(expanduser(
-        f'~/Library/Application Support/BraveSoftware/Brave-Browser{suffix}'
-    ))
+        dash_suffix = f'-{channel.title()}'
+        dot_suffix = f'.{channel}'
+    return list(map(lambda p: expanduser(f'~/Library/{p}'), [
+        f'Application Support/BraveSoftware/Brave-Browser{dash_suffix}',
+        f'Caches/BraveSoftware/Brave-Browser{dash_suffix}',
+        f'Saved Application State/com.brave.Browser{dot_suffix}.savedState',
+        f'Caches/com.brave.Browser{dot_suffix}',
+        f'Preferences/com.brave.Browser{dot_suffix}.plist',
+    ]))
