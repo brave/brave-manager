@@ -127,7 +127,6 @@ def _paginate_releases():
               f'per_page=100&page={page}'
         response = requests.get(url)
         if page == 11 and response.status_code == 422:
-            return
             raise RuntimeError(
                 f'The GitHub API only returns 1000 releases but more were '
                 f'requested. This indicates that {HISTORIC_RELEASES} is out of '
