@@ -1,6 +1,6 @@
 from impl import brave, cache, CHANNELS, updater
 from impl.actions import Uninstall, Install, Launch, ClearCache, \
-    UninstallUpdater
+    UninstallUpdater, DeleteProfile
 from impl.cache import CACHE_DIR
 from impl.releases import get_releases, group_by_minor_version
 from impl.util import select, human_readable_size
@@ -10,6 +10,7 @@ def main():
     try:
         actions = []
         main_action = ask_main_action()
+        profiles = brave.get_existing_profiles()
         if main_action == 'install':
             channel, is_installed = ask_channel()
             if not channel:
@@ -18,20 +19,31 @@ def main():
             version, dmg_url = ask_dmg_to_install(channel, public_only)
             if is_installed:
                 actions.append(Uninstall(channel))
+            if channel in profiles and ask_delete_profile():
+                actions.append(DeleteProfile(channel))
             actions.append(Install(channel, version, dmg_url))
-            launch_after_install = ask_launch_after_install()
-            if launch_after_install:
+            if ask_launch_after_install():
                 actions.append(Launch(channel))
         elif main_action == 'uninstall':
             channel = ask_channel(installed_only=True)
             if not channel:
                 return
-            actions.append(Uninstall(channel[0]))
+            actions.append(Uninstall(channel))
+            if channel in profiles and ask_delete_profile():
+                actions.append(DeleteProfile(channel))
+        elif main_action == 'delete_profile':
+            if not profiles:
+                print("You don't have any profiles to delete.")
+                return
+            profile = ask_which_profile_to_delete(profiles)
+            if not profile:
+                return
+            actions.append(DeleteProfile(profile))
         elif main_action == 'launch':
             channel = ask_channel(installed_only=True)
             if not channel:
                 return
-            Launch(channel[0])()
+            Launch(channel)()
             return
         elif main_action == 'uninstall_updater':
             installed_updaters = updater.get_installed_updaters()
@@ -58,6 +70,7 @@ def ask_main_action():
     choices = {
         'Install a new version of Brave': 'install',
         'Uninstall Brave': 'uninstall',
+        'Delete a profile': 'delete_profile',
         'Launch Brave': 'launch',
         'Uninstall Brave Updater': 'uninstall_updater',
         f'Clear the cache ({cache_size_text} in {cache_dir})': 'clear_cache'
@@ -92,7 +105,8 @@ def ask_channel(installed_only=False):
     choice_text = select(message, choices)
     if choice_text is None:
         raise KeyboardInterrupt
-    return choices[choice_text]
+    choice = choices[choice_text]
+    return choice[0] if installed_only else choice
 
 def ask_public_only():
     message = 'Should the version you want to install be public?'
@@ -122,12 +136,27 @@ def ask_dmg_to_install(channel, public_only):
         if dmg_name:
             return version, dmgs[dmg_name]
 
+def ask_delete_profile():
+    message = 'Do you also want to delete the profile?'
+    choice = select(message, ['yes', 'no'])
+    if choice is None:
+        raise KeyboardInterrupt
+    return choice == 'yes'
+
 def ask_launch_after_install():
     message = 'Should the app be launched after installation?'
     choice = select(message, ['yes', 'no'])
     if choice is None:
         raise KeyboardInterrupt
     return choice == 'yes'
+
+def ask_which_profile_to_delete(profiles):
+    message = 'Which profile do you want to delete?'
+    choices = {profile.title(): profile for profile in profiles}
+    choice = select(message, choices)
+    if choice is None:
+        raise KeyboardInterrupt
+    return choices[choice]
 
 def ask_which_updater_to_uninstall(installed_updaters):
     message = 'Which updater do you want to uninstall?'

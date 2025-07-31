@@ -1,5 +1,5 @@
 from impl import CHANNELS
-from os.path import exists, join
+from os.path import exists, join, expanduser
 from plistlib import load
 from shutil import rmtree
 from subprocess import run
@@ -36,3 +36,22 @@ def get_version(app_dir):
         plist = load(f)
     version_chromium = plist['CFBundleShortVersionString']
     return version_chromium.split('.', 1)[1]
+
+def get_existing_profiles():
+    result = []
+    for channel in CHANNELS:
+        if exists(get_profile_dir(channel)):
+            result.append(channel)
+    return result
+
+def delete_profile(channel):
+    rmtree(get_profile_dir(channel))
+
+def get_profile_dir(channel):
+    if channel == 'release':
+        suffix = ''
+    else:
+        suffix = f'-{channel.title()}'
+    return join(expanduser(
+        f'~/Library/Application Support/BraveSoftware/Brave-Browser{suffix}'
+    ))

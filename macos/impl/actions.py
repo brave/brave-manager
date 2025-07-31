@@ -26,6 +26,15 @@ class Install:
         with print_done(f'Installing {self.channel.title()}'):
             install_dmg(cache_path)
 
+class DeleteProfile:
+    def __init__(self, channel):
+        self.channel = channel
+    def __str__(self):
+        return f'Delete {self.channel.title()} profile'
+    def __call__(self):
+        with print_done(f'Deleting {self.channel.title()} profile'):
+            brave.delete_profile(self.channel)
+
 class Launch:
     def __init__(self, channel):
         self.channel = channel
