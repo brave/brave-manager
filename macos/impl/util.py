@@ -58,5 +58,15 @@ def print_done(message):
     yield
     sys.stdout.write(' done.\n')
 
+def human_readable_size(size_bytes):
+    for unit in ('B', 'KB', 'MB', 'GB', 'TB'):
+        if size_bytes < 1_000:
+            if size_bytes < 100 and size_bytes != int(size_bytes):
+                num_decimals = 2
+            else:
+                num_decimals = 0
+            return f'{size_bytes:.{num_decimals}f} {unit}'
+        size_bytes /= 1_000
+
 def _run(*args):
     run(args, check=True, stdout=DEVNULL, stderr=DEVNULL)

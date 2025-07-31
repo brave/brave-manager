@@ -1,8 +1,10 @@
 from impl import brave, cache, CHANNELS, updater
 from impl.actions import Uninstall, Install, Launch, ClearCache, \
     UninstallUpdater
+from impl.cache import CACHE_DIR
 from impl.releases import get_releases, group_by_minor_version
-from impl.util import select
+from impl.util import select, human_readable_size
+from os.path import expanduser
 
 def main():
     try:
@@ -51,14 +53,14 @@ def main():
 def ask_main_action():
     message = 'What do you want to do?'
     instruction = '(press ctrl+c to cancel)'
-    cache_size_bytes = cache.get_size()
-    cache_size_text = f'{cache_size_bytes // (1024 * 1024)} MB'
+    cache_size_text = human_readable_size(cache.get_size())
+    cache_dir = CACHE_DIR.replace(expanduser('~'), '~')
     choices = {
         'Install a new version of Brave': 'install',
         'Uninstall Brave': 'uninstall',
         'Launch Brave': 'launch',
         'Uninstall Brave Updater': 'uninstall_updater',
-        f'Clear the cache ({cache_size_text})': 'clear_cache'
+        f'Clear the cache ({cache_size_text} in {cache_dir})': 'clear_cache'
     }
     choice_text = select(message, choices, instruction)
     if choice_text is None:

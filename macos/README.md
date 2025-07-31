@@ -20,3 +20,14 @@ following command into a Terminal window:
 ```
 bm
 ```
+
+## Development
+
+To run tests, execute the following in this directory:
+
+```
+python3 -m unittest
+```
+
+To update the Zip file of historic releases that's included in this repository,
+follow the instructions in `update_historic_releases.py`.
