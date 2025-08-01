@@ -1,7 +1,6 @@
 from collections import defaultdict
 from math import ceil
 from os.path import exists, join, dirname, basename
-from shutil import copy
 from time import time
 from impl import cache
 from impl.util import extract_version
