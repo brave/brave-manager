@@ -117,24 +117,28 @@ def ask_public_only():
 
 def ask_dmg_to_install(channel, public_only):
     releases = get_releases(channel, public_only)
-    minor_versions = group_by_minor_version(releases)
+    minor_releases = group_by_minor_version(releases)
     while True:
         message = 'Which release do you want to install?'
-        minor_version = select(message, sort_minor_versions(minor_versions))
+        minor_version = select(message, sort_minor_versions(minor_releases))
         if minor_version is None:
             raise KeyboardInterrupt
 
-        exact_versions = minor_versions[minor_version]
         message = 'Which exact version?'
-        version = select(message, sort_versions(exact_versions))
-        if version is None:
+        releases = {
+            r['name'].replace(f'{channel.title()} ', ''): r
+            for r in minor_releases[minor_version]
+        }
+        release_title = select(message, sort_versions(releases))
+        if release_title is None:
             continue
 
-        dmgs = dict(sorted(exact_versions[version].items()))
+        release = releases[release_title]
+        dmgs = release['dmgs']
         message = 'Which dmg do you want to install?'
         dmg_name = select(message, dmgs)
         if dmg_name:
-            return version, dmgs[dmg_name]
+            return release['version'], dmgs[dmg_name]
 
 def ask_delete_profile():
     message = 'Do you also want to delete the profile?'
@@ -180,9 +184,10 @@ def sort_minor_versions(versions):
     parse_minor_version = lambda v: tuple(map(int, v.split('.')[:2]))
     return sorted(versions, key=parse_minor_version, reverse=True)
 
-def sort_versions(versions):
+def sort_versions(releases):
     parse_version = lambda v: tuple(map(int, v.split('.')))
-    return sorted(versions, key=parse_version, reverse=True)
+    get_version_tuple = lambda v: parse_version(releases[v]['version'])
+    return sorted(releases, key=get_version_tuple, reverse=True)
 
 if __name__ == "__main__":
     main()

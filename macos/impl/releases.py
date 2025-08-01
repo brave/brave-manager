@@ -17,7 +17,7 @@ import sys
 HISTORIC_RELEASES = join(dirname(__file__), 'historic-releases.zip')
 
 def get_releases(channel, public_only):
-    result = {}
+    result = []
     for release in _cache_releases():
         if not release['name'].startswith(channel.title()):
             continue
@@ -32,15 +32,18 @@ def get_releases(channel, public_only):
             for asset in release['assets'] if asset['name'].endswith('.dmg')
         }
         if dmgs_this_version:
-            result[version] = dmgs_this_version
+            result.append({
+                'version': version,
+                'name': release['name'].rstrip(),
+                'dmgs': dmgs_this_version
+            })
     return result
 
 def group_by_minor_version(releases):
-    result = defaultdict(dict)
-    for version, dmgs in releases.items():
-        minor_version = version.rsplit('.', 1)[0]
-        minor_version_key = f'{minor_version}.x'
-        result[minor_version_key][version] = dmgs
+    result = defaultdict(list)
+    for release in releases:
+        minor_version = release['version'].rsplit('.', 1)[0]
+        result[f'{minor_version}.x'].append(release)
     return result
 
 def update_historic_releases(tags, github_token, clear_existing=False):
@@ -79,6 +82,8 @@ def _cache_releases():
             json.dump(historic_releases, f)
     with open(cache_path) as f:
         cached_releases = json.load(f)
+    yield from cached_releases.values()
+    return
     new_items = {}
     rest_is_in_cache = False
     try:
