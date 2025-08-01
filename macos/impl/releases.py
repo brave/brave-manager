@@ -82,8 +82,6 @@ def _cache_releases():
             json.dump(historic_releases, f)
     with open(cache_path) as f:
         cached_releases = json.load(f)
-    yield from cached_releases.values()
-    return
     new_items = {}
     rest_is_in_cache = False
     try:
