@@ -142,7 +142,7 @@ def ask_dmg_to_install(channel, public_only):
 
 def ask_delete_profile():
     message = 'Do you also want to delete the profile?'
-    choice = select(message, ['yes', 'no'])
+    choice = select(message, ['no', 'yes'])
     if choice is None:
         raise KeyboardInterrupt
     return choice == 'yes'
