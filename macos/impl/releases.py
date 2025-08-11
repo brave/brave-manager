@@ -1,6 +1,6 @@
 from collections import defaultdict
 from math import ceil
-from os.path import exists, join, dirname, basename
+from os.path import exists, join, dirname, basename, getmtime
 from time import time
 from impl import cache
 from impl.util import extract_version
@@ -76,29 +76,35 @@ def update_historic_releases(tags, github_token, clear_existing=False):
 
 def _cache_releases():
     cache_path = cache.prepare('releases.json')
-    if not exists(cache_path):
+    try:
+        # GitHub's API is slow; Only re-fetch releases every 15 minutes.
+        fetch_releases = time() - getmtime(cache_path) > 15 * 60
+    except FileNotFoundError:
         historic_releases = ZippedJson(HISTORIC_RELEASES).read()
         with open(cache_path, 'w') as f:
             json.dump(historic_releases, f)
+        fetch_releases = True
     with open(cache_path) as f:
         cached_releases = json.load(f)
+    if not fetch_releases:
+        yield from cached_releases.values()
+        return
     new_items = {}
     rest_is_in_cache = False
-    try:
-        for page_results in _paginate_releases():
-            for release in page_results:
-                cache_id = _get_cache_id(release)
-                if cache_id in cached_releases:
-                    rest_is_in_cache = True
-                    break
-                else:
-                    release_thin = _trim_github_release(release)
-                    new_items[cache_id] = release_thin
-                    yield release_thin
-            if rest_is_in_cache:
+    for page_results in _paginate_releases():
+        for release in page_results:
+            cache_id = _get_cache_id(release)
+            if cache_id in cached_releases:
+                rest_is_in_cache = True
                 break
-        yield from cached_releases.values()
-    except GeneratorExit:
+            else:
+                release_thin = _trim_github_release(release)
+                new_items[cache_id] = release_thin
+                yield release_thin
+        if rest_is_in_cache:
+            break
+    yield from cached_releases.values()
+    if new_items:
         cached_releases.update(new_items)
         with open(cache_path, 'w') as f:
             json.dump(cached_releases, f)
