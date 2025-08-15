@@ -6,6 +6,8 @@ from impl.releases import get_releases, group_by_minor_version
 from impl.util import select, human_readable_size
 from os.path import expanduser
 
+import re
+
 def main():
     try:
         actions = []
@@ -126,7 +128,7 @@ def ask_dmg_to_install(channel, public_only):
 
         message = 'Which exact version?'
         releases = {
-            r['name'].replace(f'{channel.title()} ', ''): r
+            _get_release_title(r, channel): r
             for r in minor_releases[minor_version]
         }
         release_title = select(message, sort_versions(releases))
@@ -188,6 +190,13 @@ def sort_versions(releases):
     parse_version = lambda v: tuple(map(int, v.split('.')))
     get_version_tuple = lambda v: parse_version(releases[v]['version'])
     return sorted(releases, key=get_version_tuple, reverse=True)
+
+def _get_release_title(r, channel):
+    result = r['name'].replace(f'{channel.title()} ', '')
+    result = re.sub(r'^v', '', result)
+    result = result.replace(' (Chromium', ', Chromium').replace(')', '')
+    result += ', ' + r['published_at'].split('T')[0]
+    return result
 
 if __name__ == "__main__":
     main()

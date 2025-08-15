@@ -1,6 +1,6 @@
 from collections import defaultdict
 from math import ceil
-from os.path import exists, join, dirname, basename, getmtime
+from os.path import join, dirname, basename, getmtime
 from time import time
 from impl import cache
 from impl.util import extract_version
@@ -35,6 +35,7 @@ def get_releases(channel, public_only):
             result.append({
                 'version': version,
                 'name': release['name'].rstrip(),
+                'published_at': release['published_at'],
                 'dmgs': dmgs_this_version
             })
     return result
@@ -80,12 +81,19 @@ def _cache_releases():
         # GitHub's API is slow; Only re-fetch releases every 15 minutes.
         fetch_releases = time() - getmtime(cache_path) > 15 * 60
     except FileNotFoundError:
+        recreate_cache = True
+    else:
+        with open(cache_path) as f:
+            cached_releases = json.load(f)
+        # Migrate from a previous version, where we didn't store published_at.
+        recreate_cache = \
+            'published_at' not in next(iter(cached_releases.values()))
+    if recreate_cache:
         historic_releases = ZippedJson(HISTORIC_RELEASES).read()
         with open(cache_path, 'w') as f:
             json.dump(historic_releases, f)
         fetch_releases = True
-    with open(cache_path) as f:
-        cached_releases = json.load(f)
+        cached_releases = historic_releases
     if not fetch_releases:
         yield from cached_releases.values()
         return
@@ -126,7 +134,8 @@ def _trim_github_release(release):
                     asset['browser_download_url']
             }
             for asset in release['assets']
-        ]
+        ],
+        'published_at': release['published_at'],
     }
 
 def _paginate_releases():
