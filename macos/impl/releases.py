@@ -27,16 +27,17 @@ def get_releases(channel, public_only):
             version = extract_version(release['tag_name'])
         except ValueError:
             continue
-        dmgs_this_version = {
+        installers_this_version = {
             asset['name']: asset['browser_download_url']
-            for asset in release['assets'] if asset['name'].endswith('.dmg')
+            for asset in release['assets']
+            if asset['name'].endswith('.dmg') or asset['name'].endswith('.pkg')
         }
-        if dmgs_this_version:
+        if installers_this_version:
             result.append({
                 'version': version,
                 'name': release['name'].rstrip(),
                 'published_at': release['published_at'],
-                'dmgs': dmgs_this_version
+                'installers': installers_this_version
             })
     return result
 

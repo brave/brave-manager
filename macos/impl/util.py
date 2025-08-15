@@ -51,6 +51,9 @@ def install_dmg(dmg_path):
     finally:
         _run('hdiutil', 'detach', mount_point)
 
+def install_pkg(pkg_path):
+    _run('installer', '-pkg', pkg_path, '-target', '/')
+
 @contextmanager
 def print_done(message):
     sys.stdout.write(f'{message}...')

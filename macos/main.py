@@ -136,11 +136,11 @@ def ask_dmg_to_install(channel, public_only):
             continue
 
         release = releases[release_title]
-        dmgs = release['dmgs']
-        message = 'Which dmg do you want to install?'
-        dmg_name = select(message, dmgs)
-        if dmg_name:
-            return release['version'], dmgs[dmg_name]
+        installers = release['installers']
+        message = 'Which installer do you want to use?'
+        installer_name = select(message, installers)
+        if installer_name:
+            return release['version'], installers[installer_name]
 
 def ask_delete_profile():
     message = 'Do you also want to delete the profile?'

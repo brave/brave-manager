@@ -1,6 +1,7 @@
 from impl import brave, cache, updater
-from impl.util import install_dmg, print_done, FileDownloader
-from os.path import exists
+from impl.sudo import sudo
+from impl.util import install_dmg, install_pkg, print_done, FileDownloader
+from os.path import exists, basename
 from tqdm import tqdm
 
 class Uninstall:
@@ -10,21 +11,28 @@ class Uninstall:
         return f'Uninstall {self.channel.title()}'
     def __call__(self):
         with print_done(f'Uninstalling {self.channel.title()}'):
-            brave.uninstall(self.channel)
+            try:
+                brave.uninstall(self.channel)
+            except PermissionError:
+                sudo(brave.uninstall, self.channel)
 
 class Install:
-    def __init__(self, channel, version, dmg_url):
+    def __init__(self, channel, version, installer_url):
         self.channel = channel
         self.version = version
-        self.dmg_url = dmg_url
+        self.installer_url = installer_url
     def __str__(self):
-        return f'Install {self.channel.title()} {self.version}'
+        return f'Install {basename(self.installer_url)} {self.version}'
     def __call__(self):
-        cache_path = cache.prepare(self.dmg_url.split('//', 1)[1])
+        cache_path = cache.prepare(self.installer_url.split('//', 1)[1])
         if not exists(cache_path):
-            download_file(self.dmg_url, cache_path)
-        with print_done(f'Installing {self.channel.title()}'):
-            install_dmg(cache_path)
+            download_file(self.installer_url, cache_path)
+        installer_basename = basename(self.installer_url)
+        with print_done(f'Installing {installer_basename}'):
+            if installer_basename.endswith('.dmg'):
+                install_dmg(cache_path)
+            elif installer_basename.endswith('.pkg'):
+                sudo(install_pkg, cache_path)
 
 class DeleteProfile:
     def __init__(self, channel):
@@ -49,7 +57,10 @@ class UninstallUpdater:
     def __str__(self):
         return f'Uninstall Brave Updater ({self.scope})'
     def __call__(self):
-        updater.uninstall(self.scope)
+        if self.scope == 'system':
+            sudo(updater.uninstall, self.scope)
+        else:
+            updater.uninstall(self.scope)
 
 class ClearCache:
     def __str__(self):
