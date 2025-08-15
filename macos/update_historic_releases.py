@@ -5,7 +5,7 @@ keep track of older releases that are not available via the Github API.
 It's run manually, and the output is committed to the repo.
 
 Usage:
-    python update_historic_releases.py /path/to/brave-core GITHUB_TOKEN
+    GITHUB_TOKEN=github_pat_... python update_historic_releases.py .../src/brave
 """
 
 from argparse import ArgumentParser
