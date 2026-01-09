@@ -6,7 +6,7 @@ tqdm==4.67.1
 
 certifi==2025.8.3
 charset-normalizer==3.4.4
-idna==3.10
+idna==3.11
 prompt_toolkit==3.0.51
 urllib3==2.6.3
 wcwidth==0.2.13
