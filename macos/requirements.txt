@@ -1,5 +1,5 @@
 questionary==2.1.0
-requests==2.33.0
+requests==2.33.1
 tqdm==4.67.1
 
 # Transitive dependencies of the above:
