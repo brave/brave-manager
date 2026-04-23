@@ -44,26 +44,28 @@ class UninstallNeedsAdminError(Exception):
 
 def main():
     is_origin_values, channels, user_or_machine, delete_profiles = parse_args()
-    for is_user in user_or_machine:
-        user_or_machine_desc = 'user' if is_user else 'machine'
-        for channel in channels:
-            for is_origin in is_origin_values:
+    for channel in channels:
+        for is_origin in is_origin_values:
+            app_name = get_app_name(is_origin, channel)
+            for is_user in user_or_machine:
                 try:
                     was_installed = uninstall_brave(is_origin, is_user, channel)
                 except UninstallNeedsAdminError as e:
                     print(e)
                     continue
-                app_name = get_app_name(is_origin, channel)
                 if was_installed:
+                    user_or_machine_desc = 'user' if is_user else 'machine'
                     print(f'Uninstalled {app_name} ({user_or_machine_desc}).')
-                if delete_profiles and delete_user_data_dir(is_origin, channel):
-                    print(f'Deleted user data directory for {app_name}.')
+            if delete_profiles and delete_user_data_dir(is_origin, channel):
+                print(f'Deleted user data directory for {app_name}.')
+    for is_user in user_or_machine:
         try:
             was_installed = uninstall_brave_update(is_user)
         except UninstallNeedsAdminError as e:
             print(e)
         else:
             if was_installed:
+                user_or_machine_desc = 'user' if is_user else 'machine'
                 print(f'Uninstalled Brave Update ({user_or_machine_desc}).')
 
 def uninstall_brave(is_origin, is_user, channel):
