@@ -29,6 +29,13 @@ BRAVE_APP_IDS = {
     'release': '{AFE6A462-C574-4B8A-AF43-4CC60DF4563B}'
 }
 
+ORIGIN_APP_IDS = {
+    'nightly': '{50474E96-9CD2-4BC8-B0A7-0D4B6EF2E709}',
+    'dev': '{716D6A4A-D071-47A8-AC64-DBDE3EE3797B}',
+    'beta': '{56DA94FD-D872-416B-BFC4-1D7011DA7473}',
+    'release': '{F1EF32DE-F987-4289-81D2-6C4780027F9B}'
+}
+
 ALL_CHANNELS = list(BRAVE_APP_NAMES)
 
 class UninstallNeedsAdminError(Exception):
@@ -40,14 +47,17 @@ def main():
     for is_user in user_or_machine:
         user_or_machine_desc = 'user' if is_user else 'machine'
         for channel in channels:
-            try:
-                was_installed = uninstall_brave(is_user, channel)
-            except UninstallNeedsAdminError as e:
-                print(e)
-            else:
+            for is_origin in (False, True):
+                try:
+                    was_installed = uninstall_brave(is_origin, is_user, channel)
+                except UninstallNeedsAdminError as e:
+                    print(e)
+                    continue
+                app_name = get_app_name(is_origin, channel)
                 if was_installed:
-                    app_name = BRAVE_APP_NAMES[channel]
                     print(f'Uninstalled {app_name} ({user_or_machine_desc}).')
+                if delete_profiles and delete_user_data_dir(is_origin, channel):
+                    print(f'Deleted user data directory for {app_name}.')
         try:
             was_installed = uninstall_brave_update(is_user)
         except UninstallNeedsAdminError as e:
@@ -55,16 +65,11 @@ def main():
         else:
             if was_installed:
                 print(f'Uninstalled Brave Update ({user_or_machine_desc}).')
-    if delete_profiles:
-        for channel in channels:
-            if delete_user_data_dir(channel):
-                app_name = BRAVE_APP_NAMES[channel]
-                print(f'Deleted user data directory for {app_name}.')
 
-def uninstall_brave(is_user, channel):
+def uninstall_brave(is_origin, is_user, channel):
     was_installed = False
     hklm_hkcu = get_hklm_hkcu(is_user)
-    app_name = BRAVE_APP_NAMES[channel]
+    app_name = get_app_name(is_origin, channel)
     uninstall_key = get_brave_key(
         is_user, WINDOWS_UNINSTALL_KEY + '\\BraveSoftware ' + app_name
     )
@@ -97,7 +102,7 @@ def uninstall_brave(is_user, channel):
         check_admin(is_user, app_name)
         rmtree(install_dir)
     try:
-        app_guid = BRAVE_APP_IDS[channel]
+        app_guid = get_app_id(is_origin, channel)
     except KeyError:
         # This happens for channel 'development', which does not have updates.
         pass
@@ -125,8 +130,8 @@ def uninstall_brave_update(is_user):
         return True
     return False
 
-def delete_user_data_dir(channel):
-    app_name = BRAVE_APP_NAMES[channel]
+def delete_user_data_dir(is_origin, channel):
+    app_name = get_app_name(is_origin, channel)
     user_data_dir = \
         join(os.getenv('LOCALAPPDATA'), 'BraveSoftware', app_name, 'User Data')
     try:
@@ -138,6 +143,13 @@ def delete_user_data_dir(channel):
 def check_admin(is_user, app_name):
     if not is_user and not is_user_an_admin():
         raise UninstallNeedsAdminError(app_name)
+
+def get_app_name(is_origin, channel):
+    result = BRAVE_APP_NAMES[channel]
+    return result.replace('Browser', 'Origin') if is_origin else result
+
+def get_app_id(is_origin, channel):
+    return (ORIGIN_APP_IDS if is_origin else BRAVE_APP_IDS)[channel]
 
 def get_brave_key(is_user, template):
     return template.replace('WOW6432Node\\', '') if is_user else template
