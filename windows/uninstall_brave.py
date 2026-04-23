@@ -43,11 +43,11 @@ class UninstallNeedsAdminError(Exception):
         return f'Cannot uninstall {self.args[0]}. Please re-run as admin.'
 
 def main():
-    channels, user_or_machine, delete_profiles = parse_args()
+    is_origin_values, channels, user_or_machine, delete_profiles = parse_args()
     for is_user in user_or_machine:
         user_or_machine_desc = 'user' if is_user else 'machine'
         for channel in channels:
-            for is_origin in (False, True):
+            for is_origin in is_origin_values:
                 try:
                     was_installed = uninstall_brave(is_origin, is_user, channel)
                 except UninstallNeedsAdminError as e:
@@ -200,6 +200,9 @@ def delete_key_recursive(parent_key, child_name):
 def parse_args():
     parser = ArgumentParser()
     parser.add_argument(
+        '--flavor', choices=['both', 'browser', 'origin'], default='both'
+    )
+    parser.add_argument(
         '--channel', choices=['all'] + ALL_CHANNELS, default='all'
     )
     parser.add_argument(
@@ -221,7 +224,16 @@ def parse_args():
     if args.user_or_machine in {'both', 'machine'}:
         uninstall_user_or_machine.append(False)
 
-    return channels, uninstall_user_or_machine, args.delete_profiles
+    is_origin_values = []
+
+    if args.flavor in {'both', 'browser'}:
+        is_origin_values.append(False)
+
+    if args.flavor in {'both', 'origin'}:
+        is_origin_values.append(True)
+
+    return is_origin_values, channels, uninstall_user_or_machine, \
+        args.delete_profiles
 
 if __name__ == '__main__':
     main()
