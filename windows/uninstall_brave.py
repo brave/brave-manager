@@ -1,7 +1,10 @@
 from argparse import ArgumentParser
+from glob import glob
+from os import remove
 from os.path import join, exists
 from shutil import rmtree
 from subprocess import run
+from tempfile import gettempdir
 from winreg import OpenKey, HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER, \
     QueryValueEx, EnumKey, DeleteKey, QueryInfoKey
 
@@ -43,7 +46,8 @@ class UninstallNeedsAdminError(Exception):
         return f'Cannot uninstall {self.args[0]}. Please re-run as admin.'
 
 def main():
-    is_origin_values, channels, user_or_machine, delete_profiles = parse_args()
+    is_origin_values, channels, user_or_machine, delete_profiles, \
+        should_delete_temp_files = parse_args()
     for channel in channels:
         for is_origin in is_origin_values:
             app_name = get_app_name(is_origin, channel)
@@ -67,6 +71,8 @@ def main():
             if was_installed:
                 user_or_machine_desc = 'user' if is_user else 'machine'
                 print(f'Uninstalled Brave Update ({user_or_machine_desc}).')
+        if should_delete_temp_files:
+            delete_temp_files(is_user)
 
 def uninstall_brave(is_origin, is_user, channel):
     was_installed = False
@@ -142,6 +148,24 @@ def delete_user_data_dir(is_origin, channel):
         return False
     return True
 
+def delete_temp_files(is_user):
+    # Omaha creates temporary files with pattern GUT*.tmp and temporary dirs
+    # with pattern GUM*.tmp. When Brave is uninstalled and re-installed many
+    # times, then these can take up infinite space.
+    temp_dir = get_temp_dir(is_user)
+    for file_path in glob(join(temp_dir, 'GUT*.tmp')):
+        try:
+            remove(file_path)
+        except OSError:
+            # Maybe it's in use, or it is a directory.
+            pass
+    for dir_path in glob(join(temp_dir, 'GUM*.tmp')):
+        try:
+            rmtree(dir_path)
+        except OSError:
+            # Maybe it's in use, or it is a file.
+            pass
+
 def check_admin(is_user, app_name):
     if not is_user and not is_user_an_admin():
         raise UninstallNeedsAdminError(app_name)
@@ -152,6 +176,9 @@ def get_app_name(is_origin, channel):
 
 def get_app_id(is_origin, channel):
     return (ORIGIN_APP_IDS if is_origin else BRAVE_APP_IDS)[channel]
+
+def get_temp_dir(is_user):
+    return gettempdir() if is_user else r'C:\Windows\SystemTemp'
 
 def get_brave_key(is_user, template):
     return template.replace('WOW6432Node\\', '') if is_user else template
@@ -211,6 +238,7 @@ def parse_args():
         '--user_or_machine', choices=['both', 'user', 'machine'], default='both'
     )
     parser.add_argument('--delete_profiles', action='store_true')
+    parser.add_argument('--delete_temp_files', action='store_true')
     args = parser.parse_args()
 
     if args.channel == 'all':
@@ -235,7 +263,7 @@ def parse_args():
         is_origin_values.append(True)
 
     return is_origin_values, channels, uninstall_user_or_machine, \
-        args.delete_profiles
+        args.delete_profiles, args.delete_temp_files
 
 if __name__ == '__main__':
     main()
