@@ -53,9 +53,12 @@ def update_historic_releases(tags, github_token, clear_existing=False):
     if clear_existing:
         zipped_json.write({})
     historic_releases = zipped_json.read()
+    cached_tag_names = {
+        info['tag_name'] for info in historic_releases.values()
+    }
     try:
         for tag in tags:
-            if tag in historic_releases:
+            if tag in cached_tag_names:
                 continue
             url = f'https://api.github.com/repos/brave/brave-browser/releases/'\
                   f'tags/{tag}'
