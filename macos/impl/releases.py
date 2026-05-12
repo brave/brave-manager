@@ -82,16 +82,15 @@ def update_historic_releases(tags, github_token, clear_existing=False):
 def _cache_releases():
     cache_path = cache.prepare('releases.json')
     try:
-        # GitHub's API is slow; Only re-fetch releases every 15 minutes.
-        fetch_releases = time() - getmtime(cache_path) > 15 * 60
+        cache_mtime = getmtime(cache_path)
     except FileNotFoundError:
         recreate_cache = True
     else:
+        # GitHub's API is slow; Only re-fetch releases every 15 minutes.
+        fetch_releases = time() - cache_mtime > 15 * 60
         with open(cache_path) as f:
             cached_releases = json.load(f)
-        # Migrate from a previous version, where we didn't store published_at.
-        recreate_cache = \
-            'published_at' not in next(iter(cached_releases.values()))
+        recreate_cache = getmtime(HISTORIC_RELEASES) > cache_mtime
     if recreate_cache:
         historic_releases = ZippedJson(HISTORIC_RELEASES).read()
         with open(cache_path, 'w') as f:
