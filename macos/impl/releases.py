@@ -61,9 +61,9 @@ def update_historic_releases(tags, github_token, clear_existing=False):
                   f'tags/{tag}'
             headers = {'Authorization': f'Bearer {github_token}'}
             response = requests.get(url, headers=headers)
-            ratelimit_remaining = int(response.headers['x-ratelimit-remaining'])
-            ratelimit_reset = int(response.headers['x-ratelimit-reset'])
-            if response.status_code == 403 and ratelimit_remaining == 0:
+            if response.status_code == 403 \
+                    and response.headers.get('x-ratelimit-remaining') == '0':
+                ratelimit_reset = int(response.headers['x-ratelimit-reset'])
                 wait_time = ceil(ratelimit_reset - time())
                 yield wait_time
                 response = requests.get(url, headers=headers)
