@@ -1,24 +1,30 @@
-from impl import brave, cache, updater
+from impl import cache, updater
+from impl.brave import PRODUCTS
 from impl.sudo import sudo
 from impl.util import install_dmg, install_pkg, print_done, FileDownloader
 from os.path import exists, basename
 from tqdm import tqdm
 
 class Uninstall:
-    def __init__(self, channel):
-        self.channel = channel
+    def __init__(self, app):
+        self.app = app
     def __str__(self):
-        return f'Uninstall {self.channel.title()}'
+        return f'Uninstall {self.app}'
     def __call__(self):
-        with print_done(f'Uninstalling {self.channel.title()}'):
+        with print_done(f'Uninstalling {self.app}'):
             try:
-                brave.uninstall(self.channel)
+                self.app.uninstall()
             except PermissionError:
-                sudo(brave.uninstall, self.channel)
+                # It would be nice to be able to call `sudo(self.app.uninstall)`
+                # here. But `sudo` does not support bound methods. So we use a
+                # helper function, `_uninstall_with_sudo`:
+                sudo(
+                    _uninstall_with_sudo, self.app.product_title,
+                    self.app.channel
+                )
 
 class Install:
-    def __init__(self, channel, version, installer_url):
-        self.channel = channel
+    def __init__(self, version, installer_url):
         self.version = version
         self.installer_url = installer_url
     def __str__(self):
@@ -35,21 +41,21 @@ class Install:
                 sudo(install_pkg, cache_path)
 
 class DeleteProfile:
-    def __init__(self, channel):
-        self.channel = channel
+    def __init__(self, app):
+        self.app = app
     def __str__(self):
-        return f'Delete {self.channel.title()} profile'
+        return f'Delete {self.app} profile'
     def __call__(self):
-        with print_done(f'Deleting {self.channel.title()} profile'):
-            brave.delete_profile(self.channel)
+        with print_done(f'Deleting {self.app} profile'):
+            self.app.delete_profile()
 
 class Launch:
-    def __init__(self, channel):
-        self.channel = channel
+    def __init__(self, app):
+        self.app = app
     def __str__(self):
-        return f'Launch {self.channel.title()}'
+        return f'Launch {self.app}'
     def __call__(self):
-        brave.launch(self.channel)
+        self.app.launch()
 
 class UninstallUpdater:
     def __init__(self, scope):
@@ -76,3 +82,7 @@ def download_file(url, path):
     for num_bytes in downloader.run():
         progress_bar.update(num_bytes)
     progress_bar.close()
+
+def _uninstall_with_sudo(product_title, channel):
+    app = PRODUCTS[product_title](channel)
+    app.uninstall()

@@ -1,6 +1,7 @@
-from impl import brave, cache, CHANNELS, updater
+from impl import brave, cache, updater
 from impl.actions import Uninstall, Install, Launch, ClearCache, \
     UninstallUpdater, DeleteProfile
+from impl.brave import PRODUCTS
 from impl.cache import CACHE_DIR
 from impl.releases import get_releases, group_by_minor_version
 from impl.util import select, human_readable_size
@@ -12,40 +13,49 @@ def main():
     try:
         actions = []
         main_action = ask_main_action()
-        profiles = brave.get_existing_profiles()
+        apps_with_profiles = brave.get_apps_with_profiles()
         if main_action == 'install':
-            channel, is_installed = ask_channel()
-            if not channel:
+            product = ask_product()
+            if not product:
+                return
+            app = ask_app(product)
+            if not app:
                 return
             public_only = ask_public_only()
-            version, dmg_url = ask_dmg_to_install(channel, public_only)
-            if is_installed:
-                actions.append(Uninstall(channel))
-            if channel in profiles and ask_delete_profile():
-                actions.append(DeleteProfile(channel))
-            actions.append(Install(channel, version, dmg_url))
+            version, dmg_url = ask_dmg_to_install(app, public_only)
+            if app.is_installed:
+                actions.append(Uninstall(app))
+            if app in apps_with_profiles and ask_delete_profile():
+                actions.append(DeleteProfile(app))
+            actions.append(Install(version, dmg_url))
             if ask_launch_after_install():
-                actions.append(Launch(channel))
+                actions.append(Launch(app))
         elif main_action == 'uninstall':
-            channel = ask_channel(installed_only=True)
-            if not channel:
+            product = ask_product()
+            if not product:
                 return
-            actions.append(Uninstall(channel))
-            if channel in profiles and ask_delete_profile():
-                actions.append(DeleteProfile(channel))
+            app = ask_app(product, installed_only=True)
+            if not app:
+                return
+            actions.append(Uninstall(app))
+            if app in apps_with_profiles and ask_delete_profile():
+                actions.append(DeleteProfile(app))
         elif main_action == 'delete_profile':
-            if not profiles:
+            if not apps_with_profiles:
                 print("You don't have any profiles to delete.")
                 return
-            profile = ask_which_profile_to_delete(profiles)
-            if not profile:
+            app = ask_which_profile_to_delete(apps_with_profiles)
+            if not app:
                 return
-            actions.append(DeleteProfile(profile))
+            actions.append(DeleteProfile(app))
         elif main_action == 'launch':
-            channel = ask_channel(installed_only=True)
-            if not channel:
+            product = ask_product()
+            if not product:
                 return
-            Launch(channel)()
+            app = ask_app(product, installed_only=True)
+            if not app:
+                return
+            Launch(app)()
             return
         elif main_action == 'uninstall_updater':
             installed_updaters = updater.get_installed_updaters()
@@ -70,10 +80,10 @@ def ask_main_action():
     cache_size_text = human_readable_size(cache.get_size())
     cache_dir = CACHE_DIR.replace(expanduser('~'), '~')
     choices = {
-        'Install a new version of Brave': 'install',
-        'Uninstall Brave': 'uninstall',
+        'Install': 'install',
+        'Uninstall': 'uninstall',
+        'Launch': 'launch',
         'Delete a profile': 'delete_profile',
-        'Launch Brave': 'launch',
         'Uninstall Brave Updater': 'uninstall_updater',
         f'Clear the cache ({cache_size_text} in {cache_dir})': 'clear_cache'
     }
@@ -82,33 +92,33 @@ def ask_main_action():
         raise KeyboardInterrupt
     return choices[choice_text]
 
-def ask_channel(installed_only=False):
-    installed_channels = brave.get_installed_channels()
-    choices = {}
-    for channel in CHANNELS:
-        try:
-            version = installed_channels[channel]
-        except KeyError:
-            if installed_only:
-                continue
-            version_text = 'not installed'
-            is_installed = False
-        else:
-            version_text = 'installed'
-            if version:
-                version_text += f' at {version}'
-            is_installed = True
-        choice_text = f'{channel.title()} ({version_text})'
-        choices[choice_text] = channel, is_installed
-    if not choices:
-        print("You don't have any installed versions of Brave.")
-        return None
-    message = 'Which channel?'
+def ask_product():
+    message = 'Which product?'
+    choices = PRODUCTS
     choice_text = select(message, choices)
     if choice_text is None:
         raise KeyboardInterrupt
-    choice = choices[choice_text]
-    return choice[0] if installed_only else choice
+    return choices[choice_text]
+
+def ask_app(product, installed_only=False):
+    choices = {}
+    for channel in product.channels:
+        app = product(channel)
+        if app.is_installed:
+            version = app.version
+            version_text = f'installed at {version}' if version else 'installed'
+        elif installed_only:
+            continue
+        else:
+            version_text = 'not installed'
+        choices[f'{channel.title()} ({version_text})'] = app
+    if not choices:
+        print(f"You don't have any installed versions of {product}.")
+        return None
+    choice_text = select('Which channel?', choices)
+    if choice_text is None:
+        raise KeyboardInterrupt
+    return choices[choice_text]
 
 def ask_public_only():
     message = 'Should the version you want to install be public?'
@@ -117,8 +127,8 @@ def ask_public_only():
         raise KeyboardInterrupt
     return choice == 'yes'
 
-def ask_dmg_to_install(channel, public_only):
-    releases = get_releases(channel, public_only)
+def ask_dmg_to_install(app, public_only):
+    releases = get_releases(app, public_only)
     minor_releases = group_by_minor_version(releases)
     while True:
         message = 'Which release do you want to install?'
@@ -128,7 +138,7 @@ def ask_dmg_to_install(channel, public_only):
 
         message = 'Which exact version?'
         releases = {
-            _get_release_title(r, channel): r
+            _get_release_title(r, app.channel): r
             for r in minor_releases[minor_version]
         }
         release_title = select(message, sort_versions(releases))
@@ -156,9 +166,9 @@ def ask_launch_after_install():
         raise KeyboardInterrupt
     return choice == 'yes'
 
-def ask_which_profile_to_delete(profiles):
+def ask_which_profile_to_delete(apps):
     message = 'Which profile do you want to delete?'
-    choices = {profile.title(): profile for profile in profiles}
+    choices = {str(app): app for app in apps}
     choice = select(message, choices)
     if choice is None:
         raise KeyboardInterrupt

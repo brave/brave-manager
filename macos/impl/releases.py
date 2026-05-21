@@ -16,10 +16,10 @@ import sys
 # `update_historic_releases.py`.
 HISTORIC_RELEASES = join(dirname(__file__), 'historic-releases.zip')
 
-def get_releases(channel, public_only):
+def get_releases(app, public_only):
     result = []
     for release in _cache_releases():
-        if not release['name'].startswith(channel.title()):
+        if not release['name'].startswith(app.channel.title()):
             continue
         if public_only and release['prerelease']:
             continue
@@ -30,7 +30,7 @@ def get_releases(channel, public_only):
         installers_this_version = {
             asset['name']: asset['browser_download_url']
             for asset in release['assets']
-            if asset['name'].endswith('.dmg') or asset['name'].endswith('.pkg')
+            if app.accepts_installer(asset['name'])
         }
         if installers_this_version:
             result.append({
