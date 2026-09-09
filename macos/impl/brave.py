@@ -1,3 +1,4 @@
+from impl.sudo import sudo
 from os import remove
 from os.path import exists, isdir, join, expanduser
 from plistlib import load
@@ -51,7 +52,10 @@ class App:
         return any(exists(p) for p in self.profile_paths)
 
     def uninstall(self):
-        rmtree(self.dir)
+        try:
+            rmtree(self.dir)
+        except PermissionError:
+            sudo(rmtree, self.dir)
 
     def launch(self):
         run(['open', '-a', self.dir])

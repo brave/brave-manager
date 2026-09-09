@@ -1,5 +1,4 @@
 from impl import cache, updater
-from impl.brave import PRODUCTS
 from impl.sudo import sudo
 from impl.util import install_dmg, install_pkg, print_done, FileDownloader
 from os.path import exists, basename
@@ -12,16 +11,7 @@ class Uninstall:
         return f'Uninstall {self.app}'
     def __call__(self):
         with print_done(f'Uninstalling {self.app}'):
-            try:
-                self.app.uninstall()
-            except PermissionError:
-                # It would be nice to be able to call `sudo(self.app.uninstall)`
-                # here. But `sudo` does not support bound methods. So we use a
-                # helper function, `_uninstall_with_sudo`:
-                sudo(
-                    _uninstall_with_sudo, self.app.product_title,
-                    self.app.channel
-                )
+            self.app.uninstall()
 
 class Install:
     def __init__(self, version, installer_url):
@@ -82,7 +72,3 @@ def download_file(url, path):
     for num_bytes in downloader.run():
         progress_bar.update(num_bytes)
     progress_bar.close()
-
-def _uninstall_with_sudo(product_title, channel):
-    app = PRODUCTS[product_title](channel)
-    app.uninstall()
