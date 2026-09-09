@@ -1,4 +1,9 @@
-from impl.mac.browser import Brave, Origin
+import sys
+
+if sys.platform == 'win32':
+    from impl.win.browser import Brave, Origin
+else:
+    from impl.mac.browser import Brave, Origin
 
 
 PRODUCTS = {product.product_title: product for product in (Brave, Origin)}
