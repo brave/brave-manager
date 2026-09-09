@@ -1,6 +1,6 @@
 from impl import cache
 from impl.mac import updater
-from impl.sudo import sudo
+from impl.elevate import elevate
 from impl.util import print_done, FileDownloader
 from os.path import exists, basename
 from tqdm import tqdm
@@ -53,7 +53,7 @@ class UninstallUpdater:
         return f'Uninstall Brave Updater ({self.scope})'
     def __call__(self):
         if self.scope == 'system':
-            sudo(updater.uninstall, self.scope)
+            elevate(updater.uninstall, self.scope)
         else:
             updater.uninstall(self.scope)
 

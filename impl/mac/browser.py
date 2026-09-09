@@ -1,6 +1,6 @@
 from impl.actions import Install
 from impl.browser import Browser
-from impl.sudo import sudo
+from impl.elevate import elevate
 from os import getpid, listdir, stat
 from os.path import exists, join, expanduser, basename
 from plistlib import load
@@ -27,7 +27,7 @@ class InstallDmg(Install):
 
 class InstallPkg(Install):
     def _run_installer(self, path):
-        sudo(_run, 'installer', '-pkg', path, '-target', '/')
+        elevate(_run, 'installer', '-pkg', path, '-target', '/')
 
 
 class MacBrowser(Browser):
@@ -86,7 +86,7 @@ class MacBrowser(Browser):
         try:
             rmtree(self.dir)
         except PermissionError:
-            sudo(rmtree, self.dir)
+            elevate(rmtree, self.dir)
 
     def launch(self):
         run(['open', '-a', self.dir])
