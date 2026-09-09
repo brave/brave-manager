@@ -1,9 +1,10 @@
+from impl.app import App
 from os import remove
 from os.path import exists, isdir
 from shutil import rmtree
 
 
-class Browser:
+class Browser(App):
 
     product_title = None
     channels = ()
@@ -21,23 +22,12 @@ class Browser:
         return self.channel.title()
 
     @property
-    def is_installed(self):
-        raise NotImplementedError()
-
-    @property
-    def version(self):
-        raise NotImplementedError()
-
-    @property
     def profile_paths(self):
         raise NotImplementedError()
 
     @property
     def has_profile(self):
         return any(exists(p) for p in self.profile_paths)
-
-    def uninstall(self):
-        raise NotImplementedError()
 
     def launch(self):
         raise NotImplementedError()
