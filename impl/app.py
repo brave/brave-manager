@@ -1,5 +1,10 @@
 class App:
 
+    SUPPORTED_SCOPES = ('user', 'system')
+
+    def __init__(self, scope):
+        self.scope = scope
+
     @property
     def is_installed(self):
         raise NotImplementedError()
