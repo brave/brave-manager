@@ -1,8 +1,9 @@
-from impl import brave, cache, updater
+from impl import brave, cache
 from impl.actions import Uninstall, Launch, ClearCache, UninstallUpdater, \
     DeleteProfile
 from impl.brave import PRODUCTS
 from impl.cache import CACHE_DIR
+from impl.mac import updater
 from impl.releases import get_releases, group_by_minor_version
 from impl.util import select, human_readable_size
 from os.path import expanduser

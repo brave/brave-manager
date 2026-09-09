@@ -1,4 +1,5 @@
-from impl import cache, updater
+from impl import cache
+from impl.mac import updater
 from impl.sudo import sudo
 from impl.util import print_done, FileDownloader
 from os.path import exists, basename

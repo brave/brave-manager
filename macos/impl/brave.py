@@ -1,4 +1,4 @@
-from impl.macos import MacApp
+from impl.mac.app import MacApp
 
 
 class Brave(MacApp):
