@@ -1,12 +1,15 @@
+from impl.actions import InstallDmg, InstallPkg
 from impl.sudo import sudo
 from os import remove
-from os.path import exists, isdir, join, expanduser
+from os.path import exists, isdir, join, expanduser, basename
 from plistlib import load
 from shutil import rmtree
 from subprocess import run
 
 
 class App:
+
+    INSTALL_ACTIONS = {'dmg': InstallDmg, 'pkg': InstallPkg}
 
     brand = None
     product_title = None
@@ -68,9 +71,14 @@ class App:
                 remove(path)
 
     def accepts_installer(self, name):
-        if not (name.endswith('.dmg') or name.endswith('.pkg')):
-            return False
-        return name.startswith(self._bundle_name_dashed)
+        return (
+            name.startswith(self._bundle_name_dashed)
+            and _get_extension(name) in self.INSTALL_ACTIONS
+        )
+
+    def create_install_action(self, version, installer_url):
+        extension = _get_extension(basename(installer_url))
+        return self.INSTALL_ACTIONS[extension](version, installer_url)
 
     @property
     def _bundle_name(self):
@@ -122,3 +130,7 @@ def get_all_apps():
 
 def get_apps_with_profiles():
     return [app for app in get_all_apps() if app.has_profile]
+
+
+def _get_extension(file_name):
+    return file_name.rsplit('.', 1)[-1]

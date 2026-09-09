@@ -23,12 +23,18 @@ class Install:
         cache_path = cache.prepare(self.installer_url.split('//', 1)[1])
         if not exists(cache_path):
             download_file(self.installer_url, cache_path)
-        installer_basename = basename(self.installer_url)
-        with print_done(f'Installing {installer_basename}'):
-            if installer_basename.endswith('.dmg'):
-                install_dmg(cache_path)
-            elif installer_basename.endswith('.pkg'):
-                sudo(install_pkg, cache_path)
+        with print_done(f'Installing {basename(self.installer_url)}'):
+            self._run_installer(cache_path)
+    def _run_installer(self, path):
+        raise NotImplementedError()
+
+class InstallDmg(Install):
+    def _run_installer(self, path):
+        install_dmg(path)
+
+class InstallPkg(Install):
+    def _run_installer(self, path):
+        sudo(install_pkg, path)
 
 class DeleteProfile:
     def __init__(self, app):

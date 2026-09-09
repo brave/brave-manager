@@ -1,6 +1,6 @@
 from impl import brave, cache, updater
-from impl.actions import Uninstall, Install, Launch, ClearCache, \
-    UninstallUpdater, DeleteProfile
+from impl.actions import Uninstall, Launch, ClearCache, UninstallUpdater, \
+    DeleteProfile
 from impl.brave import PRODUCTS
 from impl.cache import CACHE_DIR
 from impl.releases import get_releases, group_by_minor_version
@@ -27,7 +27,7 @@ def main():
                 actions.append(Uninstall(app))
             if app in apps_with_profiles and ask_delete_profile():
                 actions.append(DeleteProfile(app))
-            actions.append(Install(version, installer_url))
+            actions.append(app.create_install_action(version, installer_url))
             if ask_launch_after_install():
                 actions.append(Launch(app))
         elif main_action == 'uninstall':
