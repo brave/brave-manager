@@ -22,12 +22,12 @@ def main():
             if not app:
                 return
             public_only = ask_public_only()
-            version, dmg_url = ask_dmg_to_install(app, public_only)
+            version, installer_url = ask_installer_to_install(app, public_only)
             if app.is_installed:
                 actions.append(Uninstall(app))
             if app in apps_with_profiles and ask_delete_profile():
                 actions.append(DeleteProfile(app))
-            actions.append(Install(version, dmg_url))
+            actions.append(Install(version, installer_url))
             if ask_launch_after_install():
                 actions.append(Launch(app))
         elif main_action == 'uninstall':
@@ -127,7 +127,7 @@ def ask_public_only():
         raise KeyboardInterrupt
     return choice == 'yes'
 
-def ask_dmg_to_install(app, public_only):
+def ask_installer_to_install(app, public_only):
     releases = get_releases(app, public_only)
     minor_releases = group_by_minor_version(releases)
     while True:
