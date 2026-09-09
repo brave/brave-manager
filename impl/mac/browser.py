@@ -1,5 +1,5 @@
 from impl.actions import Install
-from impl.app import App
+from impl.browser import Browser
 from impl.sudo import sudo
 from os import getpid, listdir
 from os.path import exists, join, expanduser, basename
@@ -28,7 +28,7 @@ class InstallPkg(Install):
         sudo(_run, 'installer', '-pkg', path, '-target', '/')
 
 
-class MacApp(App):
+class MacBrowser(Browser):
 
     INSTALL_ACTIONS = {'dmg': InstallDmg, 'pkg': InstallPkg}
 
@@ -96,14 +96,14 @@ class MacApp(App):
         return self._bundle_name.replace(' ', '-')
 
 
-class Brave(MacApp):
+class Brave(MacBrowser):
     brand = 'Brave Browser'
     product_title = 'Brave'
     channels = ('nightly', 'beta', 'release')
     bundle_id_suffix = ''
 
 
-class Origin(MacApp):
+class Origin(MacBrowser):
     brand = 'Brave Origin'
     product_title = 'Origin'
     channels = ('nightly', 'beta')

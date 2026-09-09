@@ -3,7 +3,7 @@ from os.path import exists, isdir
 from shutil import rmtree
 
 
-class App:
+class Browser:
 
     product_title = None
     channels = ()
