@@ -1,18 +1,4 @@
-from impl.mac.app import MacApp
-
-
-class Brave(MacApp):
-    brand = 'Brave Browser'
-    product_title = 'Brave'
-    channels = ('nightly', 'beta', 'release')
-    bundle_id_suffix = ''
-
-
-class Origin(MacApp):
-    brand = 'Brave Origin'
-    product_title = 'Origin'
-    channels = ('nightly', 'beta')
-    bundle_id_suffix = '.origin'
+from impl.mac.app import Brave, Origin
 
 
 PRODUCTS = {product.product_title: product for product in (Brave, Origin)}

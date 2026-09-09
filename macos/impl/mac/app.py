@@ -96,6 +96,20 @@ class MacApp(App):
         return self._bundle_name.replace(' ', '-')
 
 
+class Brave(MacApp):
+    brand = 'Brave Browser'
+    product_title = 'Brave'
+    channels = ('nightly', 'beta', 'release')
+    bundle_id_suffix = ''
+
+
+class Origin(MacApp):
+    brand = 'Brave Origin'
+    product_title = 'Origin'
+    channels = ('nightly', 'beta')
+    bundle_id_suffix = '.origin'
+
+
 def _get_extension(file_name):
     return file_name.rsplit('.', 1)[-1]
 
