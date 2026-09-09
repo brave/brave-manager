@@ -5,7 +5,7 @@ from shutil import rmtree
 
 import os
 
-CACHE_DIR = join(dirname(dirname(dirname(__file__))), '.cache')
+CACHE_DIR = join(dirname(dirname(__file__)), '.cache')
 
 def prepare(path_in_cache):
     absolute_path = join(CACHE_DIR, path_in_cache)

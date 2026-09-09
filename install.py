@@ -16,7 +16,7 @@ def ensure_venv_exists():
 
 def install_dependencies():
     pip = get_project_file('venv', 'bin', 'pip')
-    requirements_txt = get_project_file('macos', 'requirements.txt')
+    requirements_txt = get_project_file('requirements.txt')
     run([pip, 'install', '-U', 'pip'])
     run([pip, 'install', '-Ur', requirements_txt])
 
@@ -42,11 +42,11 @@ def add_to_zshrc():
 
 def get_bm_alias():
     python = get_project_file('venv/bin/python')
-    main_py = get_project_file('macos/main.py')
+    main_py = get_project_file('main.py')
     return f"alias bm='\"{python}\" \"{main_py}\"'"
 
 def get_project_file(*relpath):
-    project_dir = dirname(dirname(__file__))
+    project_dir = dirname(__file__)
     return join(project_dir, *relpath)
 
 if __name__ == '__main__':
