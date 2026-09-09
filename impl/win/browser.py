@@ -1,10 +1,26 @@
 from ctypes import byref, c_uint, c_void_p, create_string_buffer, string_at
 from impl.browser import Browser
-from os.path import exists, join
+from impl.elevate import elevate
+from impl.win import registry
+from os.path import exists, join, dirname
+from shutil import rmtree
 from struct import unpack
+from subprocess import run
+from winreg import HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE
 
 import ctypes
 import os
+
+APP_GUIDS = {
+    'Brave-Browser-Nightly': '{C6CB981E-DB30-4876-8639-109F8933582C}',
+    'Brave-Browser-Dev': '{CB2150F2-595F-4633-891A-E39720CE0531}',
+    'Brave-Browser-Beta': '{103BD053-949B-43A8-9120-2E424887DE11}',
+    'Brave-Browser': '{AFE6A462-C574-4B8A-AF43-4CC60DF4563B}',
+    'Brave-Origin-Nightly': '{50474E96-9CD2-4BC8-B0A7-0D4B6EF2E709}',
+    'Brave-Origin-Dev': '{716D6A4A-D071-47A8-AC64-DBDE3EE3797B}',
+    'Brave-Origin-Beta': '{56DA94FD-D872-416B-BFC4-1D7011DA7473}',
+    'Brave-Origin': '{F1EF32DE-F987-4289-81D2-6C4780027F9B}'
+}
 
 
 class WindowsBrowser(Browser):
@@ -28,6 +44,13 @@ class WindowsBrowser(Browser):
     def profile_paths(self):
         brave_software_dir = join(os.environ['LOCALAPPDATA'], 'BraveSoftware')
         return [join(brave_software_dir, self.app_name, 'User Data')]
+
+    def uninstall(self):
+        args = (self.app_name, self.scope, dirname(self.brave_exe))
+        if self.scope == 'system':
+            elevate(_uninstall, *args)
+        else:
+            _uninstall(*args)
 
     def launch(self):
         os.startfile(self.brave_exe)
@@ -60,6 +83,31 @@ class Brave(WindowsBrowser):
 class Origin(WindowsBrowser):
     app_name_prefix = 'Brave-Origin'
     product_title = 'Origin'
+
+
+def _uninstall(app_name, scope, install_dir):
+    # Brave's registry keys live in the 32-bit view. Under HKLM, that's
+    # WOW6432Node. HKCU has no such redirection.
+    if scope == 'user':
+        root, prefix = HKEY_CURRENT_USER, 'SOFTWARE'
+    else:
+        root, prefix = HKEY_LOCAL_MACHINE, r'SOFTWARE\WOW6432Node'
+    uninstall_key = rf'{prefix}\Microsoft\Windows\CurrentVersion\Uninstall' \
+        rf'\BraveSoftware {app_name}'
+    try:
+        uninstall_string = \
+            registry.read_value(root, uninstall_key, 'UninstallString')
+    except FileNotFoundError:
+        pass
+    else:
+        cp = run(f'{uninstall_string} --force-uninstall')
+        if cp.returncode not in (0, 19):
+            cp.check_returncode()
+    registry.delete_key(root, uninstall_key)
+    if exists(install_dir):
+        rmtree(install_dir)
+    guid = APP_GUIDS[app_name]
+    registry.delete_key(root, rf'{prefix}\BraveSoftware\Update\Clients\{guid}')
 
 
 def _get_brave_software_dir(architecture, scope):
