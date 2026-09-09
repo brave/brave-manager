@@ -1,9 +1,4 @@
 from contextlib import contextmanager
-from os import getpid, listdir
-from os.path import join
-from shutil import copytree
-from subprocess import run, DEVNULL
-from time import time
 
 import questionary
 import requests
@@ -40,20 +35,6 @@ class FileDownloader:
                 f.write(data)
                 yield len(data)
 
-def install_dmg(dmg_path):
-    mount_point = f'/Volumes/temp_{getpid()}_{int(time())}'
-    _run('hdiutil', 'attach', dmg_path, '-nobrowse', '-mountpoint', mount_point)
-    try:
-        app_name = [f for f in listdir(mount_point) if f.endswith('.app')][0]
-        src_path = join(mount_point, app_name)
-        dst_path = join('/Applications', app_name)
-        copytree(src_path, dst_path, symlinks=True)
-    finally:
-        _run('hdiutil', 'detach', mount_point)
-
-def install_pkg(pkg_path):
-    _run('installer', '-pkg', pkg_path, '-target', '/')
-
 @contextmanager
 def print_done(message):
     sys.stdout.write(f'{message}...')
@@ -70,6 +51,3 @@ def human_readable_size(size_bytes):
                 num_decimals = 0
             return f'{size_bytes:.{num_decimals}f} {unit}'
         size_bytes /= 1_000
-
-def _run(*args):
-    run(args, check=True, stdout=DEVNULL, stderr=DEVNULL)

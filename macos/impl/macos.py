@@ -1,10 +1,31 @@
-from impl.actions import InstallDmg, InstallPkg
+from impl.actions import Install
 from impl.app import App
 from impl.sudo import sudo
+from os import getpid, listdir
 from os.path import exists, join, expanduser, basename
 from plistlib import load
-from shutil import rmtree
-from subprocess import run
+from shutil import rmtree, copytree
+from subprocess import run, DEVNULL
+from time import time
+
+
+class InstallDmg(Install):
+    def _run_installer(self, path):
+        mount_point = f'/Volumes/temp_{getpid()}_{int(time())}'
+        _run('hdiutil', 'attach', path, '-nobrowse', '-mountpoint', mount_point)
+        try:
+            app_name = \
+                [f for f in listdir(mount_point) if f.endswith('.app')][0]
+            src_path = join(mount_point, app_name)
+            dst_path = join('/Applications', app_name)
+            copytree(src_path, dst_path, symlinks=True)
+        finally:
+            _run('hdiutil', 'detach', mount_point)
+
+
+class InstallPkg(Install):
+    def _run_installer(self, path):
+        sudo(_run, 'installer', '-pkg', path, '-target', '/')
 
 
 class MacApp(App):
@@ -77,3 +98,7 @@ class MacApp(App):
 
 def _get_extension(file_name):
     return file_name.rsplit('.', 1)[-1]
+
+
+def _run(*args):
+    run(args, check=True, stdout=DEVNULL, stderr=DEVNULL)

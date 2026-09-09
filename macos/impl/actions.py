@@ -1,6 +1,6 @@
 from impl import cache, updater
 from impl.sudo import sudo
-from impl.util import install_dmg, install_pkg, print_done, FileDownloader
+from impl.util import print_done, FileDownloader
 from os.path import exists, basename
 from tqdm import tqdm
 
@@ -27,14 +27,6 @@ class Install:
             self._run_installer(cache_path)
     def _run_installer(self, path):
         raise NotImplementedError()
-
-class InstallDmg(Install):
-    def _run_installer(self, path):
-        install_dmg(path)
-
-class InstallPkg(Install):
-    def _run_installer(self, path):
-        sudo(install_pkg, path)
 
 class DeleteProfile:
     def __init__(self, app):
