@@ -30,7 +30,11 @@ class InstallPkg(Install):
 
 class MacBrowser(Browser):
 
-    INSTALL_ACTIONS = {'dmg': InstallDmg, 'pkg': InstallPkg}
+    INSTALL_ACTIONS = {
+        'user': {'dmg': InstallDmg},
+        'system': {'pkg': InstallPkg}
+    }
+    SUPPORTED_ARCHITECTURES = ('x64', 'arm64', 'universal')
 
     brand = None
     bundle_id_suffix = None
@@ -76,14 +80,15 @@ class MacBrowser(Browser):
         run(['open', '-a', self.dir])
 
     def accepts_installer(self, name):
-        return (
-            name.startswith(self._bundle_name_dashed)
-            and _get_extension(name) in self.INSTALL_ACTIONS
-        )
+        return name in {
+            f'{self._bundle_name_dashed}-{self.architecture}.{extension}'
+            for extension in self.INSTALL_ACTIONS[self.scope]
+        }
 
     def create_install_action(self, version, installer_url):
         extension = _get_extension(basename(installer_url))
-        return self.INSTALL_ACTIONS[extension](version, installer_url)
+        install_action = self.INSTALL_ACTIONS[self.scope][extension]
+        return install_action(version, installer_url)
 
     @property
     def _bundle_name(self):
