@@ -11,6 +11,15 @@ class App:
     def __init__(self, channel):
         self.channel = channel
 
+    @classmethod
+    def get_apps(cls):
+        for channel in cls.channels:
+            yield cls(channel)
+
+    @property
+    def name(self):
+        return self.channel.title()
+
     @property
     def is_installed(self):
         raise NotImplementedError()
@@ -49,7 +58,7 @@ class App:
     def __str__(self):
         if self.channel == 'release':
             return self.product_title
-        return f'{self.product_title} {self.channel.title()}'
+        return f'{self.product_title} {self.name}'
 
     def __repr__(self):
         return f'{type(self).__name__}({self.channel!r})'

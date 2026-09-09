@@ -103,8 +103,7 @@ def ask_product():
 
 def ask_app(product, installed_only=False):
     choices = {}
-    for channel in product.channels:
-        app = product(channel)
+    for app in product.get_apps():
         if app.is_installed:
             version = app.version
             version_text = f'installed at {version}' if version else 'installed'
@@ -112,7 +111,7 @@ def ask_app(product, installed_only=False):
             continue
         else:
             version_text = 'not installed'
-        choices[f'{channel.title()} ({version_text})'] = app
+        choices[f'{app.name} ({version_text})'] = app
     if not choices:
         print(f"You don't have any installed versions of {product}.")
         return None
