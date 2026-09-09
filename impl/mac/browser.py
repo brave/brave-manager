@@ -1,12 +1,14 @@
 from impl.actions import Install
 from impl.browser import Browser
 from impl.sudo import sudo
-from os import getpid, listdir
+from os import getpid, listdir, stat
 from os.path import exists, join, expanduser, basename
 from plistlib import load
 from shutil import rmtree, copytree
 from subprocess import run, DEVNULL
 from time import time
+
+import os
 
 
 class InstallDmg(Install):
@@ -45,17 +47,27 @@ class MacBrowser(Browser):
 
     @property
     def is_installed(self):
-        return exists(self.dir)
+        if not exists(self.dir):
+            return False
+        is_owned_by_user = stat(self.dir).st_uid == os.getuid()
+        if (self.scope == 'user') != is_owned_by_user:
+            return False
+        executable_name = self._info_plist['CFBundleExecutable']
+        executable = join(self.dir, 'Contents', 'MacOS', executable_name)
+        return _get_architecture(executable) == self.architecture
 
     @property
     def version(self):
-        info_plist_path = join(self.dir, 'Contents', 'Info.plist')
         try:
-            with open(info_plist_path, 'rb') as f:
-                plist = load(f)
+            info_plist = self._info_plist
         except FileNotFoundError:
             return None
-        return plist['CFBundleShortVersionString'].split('.', 1)[1]
+        return info_plist['CFBundleShortVersionString'].split('.', 1)[1]
+
+    @property
+    def _info_plist(self):
+        with open(join(self.dir, 'Contents', 'Info.plist'), 'rb') as f:
+            return load(f)
 
     @property
     def profile_paths(self):
@@ -113,6 +125,20 @@ class Origin(MacBrowser):
     product_title = 'Origin'
     channels = ('nightly', 'beta')
     bundle_id_suffix = '.origin'
+
+
+def _get_architecture(executable_path):
+    with open(executable_path, 'rb') as f:
+        header = f.read(8)
+    magic = header[:4]
+    if magic == b'\xca\xfe\xba\xbe':
+        # Fat binary
+        return 'universal'
+    if magic == b'\xcf\xfa\xed\xfe':
+        # 64-bit Mach-O, little endian
+        cpu_type = int.from_bytes(header[4:8], 'little')
+        return {0x01000007: 'x64', 0x0100000c: 'arm64'}[cpu_type]
+    raise ValueError(f'Unknown executable format: {executable_path}')
 
 
 def _get_extension(file_name):
