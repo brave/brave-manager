@@ -1,8 +1,10 @@
 class App:
 
+    SUPPORTED_ARCHITECTURES = ('x64', 'arm64')
     SUPPORTED_SCOPES = ('user', 'system')
 
-    def __init__(self, scope):
+    def __init__(self, architecture, scope):
+        self.architecture = architecture
         self.scope = scope
 
     @property
