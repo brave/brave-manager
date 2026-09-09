@@ -6,8 +6,9 @@ from shutil import rmtree
 
 class Browser(App):
 
+    CHANNELS = ('nightly', 'dev', 'beta', 'release')
+
     product_title = None
-    channels = ()
 
     def __init__(self, channel, architecture, scope):
         super().__init__(architecture, scope)
@@ -15,7 +16,7 @@ class Browser(App):
 
     @classmethod
     def get_apps(cls):
-        for channel in cls.channels:
+        for channel in cls.CHANNELS:
             for architecture in cls.SUPPORTED_ARCHITECTURES:
                 for scope in cls.SUPPORTED_SCOPES:
                     yield cls(channel, architecture, scope)

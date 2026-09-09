@@ -55,13 +55,11 @@ class WindowsBrowser(Browser):
 class Brave(WindowsBrowser):
     app_name_prefix = 'Brave-Browser'
     product_title = 'Brave'
-    channels = ('nightly', 'dev', 'beta', 'release')
 
 
 class Origin(WindowsBrowser):
     app_name_prefix = 'Brave-Origin'
     product_title = 'Origin'
-    channels = ('nightly', 'beta')
 
 
 def _get_brave_software_dir(architecture, scope):

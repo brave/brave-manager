@@ -116,14 +116,12 @@ class MacBrowser(Browser):
 class Brave(MacBrowser):
     brand = 'Brave Browser'
     product_title = 'Brave'
-    channels = ('nightly', 'beta', 'release')
     bundle_id_suffix = ''
 
 
 class Origin(MacBrowser):
     brand = 'Brave Origin'
     product_title = 'Origin'
-    channels = ('nightly', 'beta')
     bundle_id_suffix = '.origin'
 
 
