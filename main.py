@@ -159,11 +159,9 @@ def ask_installer_to_install(app, public_only):
             continue
 
         release = releases[release_title]
-        installers = release['installers']
-        message = 'Which installer do you want to use?'
-        installer_name = select(message, installers)
-        if installer_name:
-            return release['version'], installers[installer_name]
+        # Each app accepts exactly one installer per release:
+        installer_url, = release['installers'].values()
+        return release['version'], installer_url
 
 def ask_delete_profile():
     message = 'Do you also want to delete the profile?'
