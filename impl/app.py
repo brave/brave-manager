@@ -1,11 +1,10 @@
 class App:
 
     SUPPORTED_ARCHITECTURES = ('x64', 'arm64')
-    SUPPORTED_SCOPES = ('user', 'system')
 
-    def __init__(self, architecture, scope):
+    def __init__(self, architecture, is_system_level):
         self.architecture = architecture
-        self.scope = scope
+        self.is_system_level = is_system_level
 
     @property
     def is_installed(self):

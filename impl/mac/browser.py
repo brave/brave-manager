@@ -2,7 +2,7 @@ from impl.actions import Install
 from impl.browser import Browser
 from impl.elevate import elevate
 from os import getpid, listdir, stat
-from os.path import exists, join, expanduser, basename
+from os.path import exists, join, expanduser
 from plistlib import load
 from shutil import rmtree, copytree
 from subprocess import run, DEVNULL
@@ -32,10 +32,7 @@ class InstallPkg(Install):
 
 class MacBrowser(Browser):
 
-    INSTALL_ACTIONS = {
-        'user': {'dmg': InstallDmg},
-        'system': {'pkg': InstallPkg}
-    }
+    INSTALL_ACTIONS = {'dmg': InstallDmg, 'pkg': InstallPkg}
     SUPPORTED_ARCHITECTURES = ('x64', 'arm64', 'universal')
 
     brand = None
@@ -50,7 +47,7 @@ class MacBrowser(Browser):
         if not exists(self.dir):
             return False
         is_owned_by_user = stat(self.dir).st_uid == os.getuid()
-        if (self.scope == 'user') != is_owned_by_user:
+        if is_owned_by_user == self.is_system_level:
             return False
         executable_name = self._info_plist['CFBundleExecutable']
         executable = join(self.dir, 'Contents', 'MacOS', executable_name)
@@ -92,15 +89,17 @@ class MacBrowser(Browser):
         run(['open', '-a', self.dir])
 
     def accepts_installer(self, name):
-        return name in {
-            f'{self._bundle_name_dashed}-{self.architecture}.{extension}'
-            for extension in self.INSTALL_ACTIONS[self.scope]
-        }
+        return name == f'{self._bundle_name_dashed}-{self.architecture}' \
+            f'.{self._installer_extension}'
 
     def create_install_action(self, version, installer_url):
-        extension = _get_extension(basename(installer_url))
-        install_action = self.INSTALL_ACTIONS[self.scope][extension]
+        install_action = self.INSTALL_ACTIONS[self._installer_extension]
         return install_action(version, installer_url)
+
+    @property
+    def _installer_extension(self):
+        # DMGs install per-user, PKGs system-wide.
+        return 'pkg' if self.is_system_level else 'dmg'
 
     @property
     def _bundle_name(self):
@@ -137,10 +136,6 @@ def _get_architecture(executable_path):
         cpu_type = int.from_bytes(header[4:8], 'little')
         return {0x01000007: 'x64', 0x0100000c: 'arm64'}[cpu_type]
     raise ValueError(f'Unknown executable format: {executable_path}')
-
-
-def _get_extension(file_name):
-    return file_name.rsplit('.', 1)[-1]
 
 
 def _run(*args):

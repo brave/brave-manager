@@ -46,10 +46,10 @@ class InstallExe(Install):
     def _run_installer(self, path):
         # Brave's installers are tagged with needsadmin=prefers. This makes
         # them install system-wide when they can elevate, and per-user
-        # otherwise. We want to install for the scope the user chose. So we
+        # otherwise. We want to install at the level the user chose. So we
         # pass a tag with an explicit needsadmin value instead. /nomitag
         # makes the installer use our tag instead of its embedded one.
-        needs_admin = self.browser.scope == 'system'
+        needs_admin = self.browser.is_system_level
         tag = re.sub(
             r'needsadmin=[^&]*', f'needsadmin={needs_admin}', _read_tag(path)
         )
@@ -89,8 +89,8 @@ class WindowsBrowser(Browser):
         return [join(brave_software_dir, self.app_name, 'User Data')]
 
     def uninstall(self):
-        args = (self.app_name, self.scope, dirname(self.brave_exe))
-        if self.scope == 'system':
+        args = (self.app_name, self.is_system_level, dirname(self.brave_exe))
+        if self.is_system_level:
             elevate(_uninstall, *args)
         else:
             _uninstall(*args)
@@ -118,7 +118,7 @@ class WindowsBrowser(Browser):
     @property
     def brave_exe(self):
         brave_software_dir = \
-            _get_brave_software_dir(self.architecture, self.scope)
+            _get_brave_software_dir(self.architecture, self.is_system_level)
         result = \
             join(brave_software_dir, self.app_name, 'Application', 'brave.exe')
         if not exists(result):
@@ -139,13 +139,13 @@ class Origin(WindowsBrowser):
     product_title = 'Origin'
 
 
-def _uninstall(app_name, scope, install_dir):
+def _uninstall(app_name, is_system_level, install_dir):
     # Brave's registry keys live in the 32-bit view. Under HKLM, that's
     # WOW6432Node. HKCU has no such redirection.
-    if scope == 'user':
-        root, prefix = HKEY_CURRENT_USER, 'SOFTWARE'
-    else:
+    if is_system_level:
         root, prefix = HKEY_LOCAL_MACHINE, r'SOFTWARE\WOW6432Node'
+    else:
+        root, prefix = HKEY_CURRENT_USER, 'SOFTWARE'
     uninstall_key = rf'{prefix}\Microsoft\Windows\CurrentVersion\Uninstall' \
         rf'\BraveSoftware {app_name}'
     try:
@@ -174,8 +174,8 @@ def _read_tag(installer_path):
     return match.group().decode()
 
 
-def _get_brave_software_dir(architecture, scope):
-    if scope == 'user':
+def _get_brave_software_dir(architecture, is_system_level):
+    if not is_system_level:
         env_var = 'LOCALAPPDATA'
     elif architecture == 'x86':
         env_var = 'PROGRAMFILES(X86)'
