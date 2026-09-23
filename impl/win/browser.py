@@ -1,8 +1,11 @@
 from ctypes import byref, c_uint, c_void_p, create_string_buffer, string_at
+from impl.actions import Install
 from impl.browser import Browser
 from impl.elevate import elevate
 from impl.win import registry
-from os.path import exists, join, dirname
+from impl.win.elevate import run_elevated
+from os import SEEK_END
+from os.path import exists, join, dirname, basename
 from shutil import rmtree
 from struct import unpack
 from subprocess import run
@@ -10,6 +13,7 @@ from winreg import HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE
 
 import ctypes
 import os
+import re
 
 APP_GUIDS = {
     'Brave-Browser-Nightly': '{C6CB981E-DB30-4876-8639-109F8933582C}',
@@ -21,6 +25,45 @@ APP_GUIDS = {
     'Brave-Origin-Beta': '{56DA94FD-D872-416B-BFC4-1D7011DA7473}',
     'Brave-Origin': '{F1EF32DE-F987-4289-81D2-6C4780027F9B}'
 }
+
+# Written by the Omaha installer, also for per-user installations:
+UPDATE_LOG_PATH = join(
+    os.environ['PROGRAMDATA'], 'BraveSoftware', 'Update', 'Log',
+    'BraveUpdate.log'
+)
+
+# Installers are Omaha meta-installers with an embedded tag such as
+# appguid={...}&appname=Brave-Browser-Nightly&needsadmin=prefers&ap=nightly
+TAG_PATTERN = re.compile(
+    rb'appguid=\{[0-9A-Fa-f-]+\}(?:&[A-Za-z]+(?:=[A-Za-z0-9%._\-{}]*)?)*'
+)
+
+
+class InstallExe(Install):
+    def __init__(self, browser, version, installer_url):
+        super().__init__(version, installer_url)
+        self.browser = browser
+    def _run_installer(self, path):
+        # Brave's installers are tagged with needsadmin=prefers. This makes
+        # them install system-wide when they can elevate, and per-user
+        # otherwise. We want to install for the scope the user chose. So we
+        # pass a tag with an explicit needsadmin value instead. /nomitag
+        # makes the installer use our tag instead of its embedded one.
+        needs_admin = self.browser.scope == 'system'
+        tag = re.sub(
+            r'needsadmin=[^&]*', f'needsadmin={needs_admin}', _read_tag(path)
+        )
+        command = [path, '/silent', '/install', tag, '/nomitag']
+        if needs_admin:
+            run_elevated(command)
+        else:
+            run(command, check=True)
+        # The installer's exit code is not reliable:
+        if not self.browser.is_installed:
+            raise RuntimeError(
+                f'{basename(path)} did not install {self.browser}. '
+                f'See {UPDATE_LOG_PATH}.'
+            )
 
 
 class WindowsBrowser(Browser):
@@ -54,6 +97,17 @@ class WindowsBrowser(Browser):
 
     def launch(self):
         os.startfile(self.brave_exe)
+
+    def accepts_installer(self, name):
+        # Only Standalone installers contain the browser. The others fetch
+        # the latest version online, regardless of the release they belong to.
+        brand = self.app_name_prefix.replace('-', '')
+        channel = '' if self.channel == 'release' else self.channel.title()
+        suffix = {'x64': '', 'x86': '32', 'arm64': 'Arm64'}[self.architecture]
+        return name == f'{brand}Standalone{channel}Setup{suffix}.exe'
+
+    def create_install_action(self, version, installer_url):
+        return InstallExe(self, version, installer_url)
 
     @property
     def app_name(self):
@@ -108,6 +162,16 @@ def _uninstall(app_name, scope, install_dir):
         rmtree(install_dir)
     guid = APP_GUIDS[app_name]
     registry.delete_key(root, rf'{prefix}\BraveSoftware\Update\Clients\{guid}')
+
+
+def _read_tag(installer_path):
+    with open(installer_path, 'rb') as f:
+        f.seek(0, SEEK_END)
+        f.seek(max(0, f.tell() - 200_000))
+        match = TAG_PATTERN.search(f.read())
+    if not match:
+        raise ValueError(f'No tag found in {installer_path}')
+    return match.group().decode()
 
 
 def _get_brave_software_dir(architecture, scope):
