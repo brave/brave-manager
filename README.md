@@ -1,29 +1,36 @@
 # Brave Manager
 
-A tool for managing installed Brave versions on Windows and macOS. The
-instructions below are for macOS. For Windows, please see the
-[windows](windows) subdirectory.
+A tool for managing installed Brave versions on macOS and Windows.
 
 ## Installation
 
 Download [this repository's Zip file](https://github.com/brave/brave-manager/archive/refs/heads/main.zip)
-and unpack it. Let's say this gives you the folder `brave-manager` in your home
-directory.
-
-Open a Terminal window and execute the following command:
+and unpack it. Open a terminal in the unpacked folder and execute the
+following command. On macOS:
 
 ```
-python3 ~/brave-manager/install.py
+python3 install.py
 ```
+
+On Windows:
+
+```
+python install.py
+```
+
+The script asks whether it should add Brave Manager to your `PATH`.
 
 ## Usage
 
-After installation, you should be able to launch Brave Manager by typing the
-following command into a Terminal window:
+After installation, open a new terminal window. Then you can launch Brave
+Manager by typing the following command:
 
 ```
 bm
 ```
+
+If you did not add Brave Manager to your `PATH`, run `bin/bm` (macOS) or
+`bin\bm.bat` (Windows) in the unpacked folder instead.
 
 ## Development
 
