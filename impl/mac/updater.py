@@ -8,8 +8,6 @@ from subprocess import run
 
 class BraveUpdater(App):
 
-    SUPPORTED_ARCHITECTURES = ('universal',)
-
     product_title = 'Brave Updater'
 
     @property

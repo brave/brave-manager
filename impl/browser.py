@@ -9,7 +9,9 @@ from shutil import rmtree
 class Browser(App):
 
     CHANNELS = ('nightly', 'dev', 'beta', 'release')
+    SUPPORTED_ARCHITECTURES = ('x64', 'arm64')
 
+    architecture: str
     channel: str
 
     @classmethod
@@ -17,7 +19,7 @@ class Browser(App):
         for channel in cls.CHANNELS:
             for architecture in cls.SUPPORTED_ARCHITECTURES:
                 for is_system_level in (False, True):
-                    yield cls(architecture, is_system_level, channel)
+                    yield cls(is_system_level, architecture, channel)
 
     @property
     def name(self):
@@ -46,6 +48,10 @@ class Browser(App):
 
     def create_install_action(self, version, installer_url):
         raise NotImplementedError()
+
+    @property
+    def _details(self):
+        return [self.architecture] + super()._details
 
     def __str__(self):
         if self.channel == 'release':
