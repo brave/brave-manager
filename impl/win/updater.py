@@ -1,10 +1,13 @@
+from glob import glob
 from impl.app import App
 from impl.elevate import elevate
 from impl.win import registry
 from impl.win.browser import UPDATE_LOG_PATH
-from os import listdir
+from os import listdir, remove
 from os.path import join
+from shutil import rmtree
 from subprocess import run
+from tempfile import gettempdir
 from winreg import HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE
 
 import os
@@ -117,3 +120,25 @@ def _uninstall_omaha3(is_system_level):
         if guid.upper() != OMAHA3_GUID:
             registry.delete_key(root, rf'{key}\Clients\{guid}')
     run([omaha3.exe, '/uninstall'])
+    _delete_omaha3_temp_files(is_system_level)
+
+
+def _delete_omaha3_temp_files(is_system_level):
+    # Omaha 3 leaves GUT*.tmp files and GUM*.tmp directories behind. When Brave
+    # is installed and uninstalled many times, they can take up a lot of space.
+    if is_system_level:
+        temp_dir = join(os.environ['SYSTEMROOT'], 'SystemTemp')
+    else:
+        temp_dir = gettempdir()
+    for path in glob(join(temp_dir, 'GUT*.tmp')):
+        try:
+            remove(path)
+        except OSError:
+            # Maybe it's in use, or it is a directory.
+            pass
+    for path in glob(join(temp_dir, 'GUM*.tmp')):
+        try:
+            rmtree(path)
+        except OSError:
+            # Maybe it's in use, or it is a file.
+            pass
