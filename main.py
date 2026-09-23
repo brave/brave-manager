@@ -1,6 +1,9 @@
+from argparse import ArgumentParser
 from impl import brave, cache, updater
 from impl.actions import Uninstall, Launch, ClearCache, DeleteProfile
 from impl.brave import PRODUCTS
+from impl.browser import Browser
+from impl.updater import UPDATERS
 from impl.cache import CACHE_DIR
 from impl.releases import get_releases, group_by_minor_version
 from impl.util import select, human_readable_size
@@ -9,6 +12,84 @@ from os.path import expanduser
 import re
 
 def main():
+    args = parse_args()
+    try:
+        if args.command == 'uninstall':
+            if args.target == 'updater':
+                uninstall_updaters(args.updaters)
+            else:
+                uninstall(args.product, args.channel, args.delete_profile)
+        else:
+            run_interactively()
+    except KeyboardInterrupt:
+        pass
+
+def parse_args(argv=None):
+    parser = ArgumentParser(
+        description='Manage installed Brave versions. Without a command, '
+        'Brave Manager asks what to do.'
+    )
+    subparsers = parser.add_subparsers(dest='command')
+    uninstall_parser = subparsers.add_parser(
+        'uninstall', help='uninstall a browser channel or an updater'
+    )
+    targets = uninstall_parser.add_subparsers(dest='target', required=True)
+    for title, product in PRODUCTS.items():
+        product_parser = targets.add_parser(
+            title.lower(),
+            help=f'uninstall a {title} channel, all architectures and levels'
+        )
+        product_parser.add_argument(
+            'channel', type=str.lower, choices=Browser.CHANNELS
+        )
+        product_parser.add_argument(
+            '--delete-profile', action='store_true',
+            help='also delete the profile'
+        )
+        product_parser.set_defaults(product=product)
+    updaters = {
+        u.product_title.replace(' ', '').lower(): u for u in UPDATERS
+    }
+    updater_parser = targets.add_parser(
+        'updater', help='uninstall all installed updaters, or just one'
+    )
+    updater_parser.add_argument(
+        'name', nargs='?', type=str.lower, choices=list(updaters)
+    )
+    args = parser.parse_args(argv)
+    if args.command == 'uninstall' and args.target == 'updater':
+        if args.name:
+            args.updaters = [updaters[args.name]]
+        else:
+            args.updaters = list(UPDATERS)
+    return args
+
+def uninstall(product, channel, delete_profile):
+    apps = [app for app in product.get_apps() if app.channel == channel]
+    installed = [app for app in apps if app.is_installed]
+    for app in installed:
+        Uninstall(app)()
+    if not installed:
+        print(f'{apps[0].title} is not installed.')
+    if delete_profile:
+        # All architectures and levels of a channel share one profile:
+        app = apps[0]
+        if app.has_profile:
+            DeleteProfile(app)()
+        else:
+            print(f'{app.title} has no profile.')
+
+def uninstall_updaters(updaters):
+    installed = [
+        app for updater in updaters for app in updater.get_apps()
+        if app.is_installed
+    ]
+    for app in installed:
+        Uninstall(app)()
+    if not installed:
+        print('No updaters are installed.')
+
+def run_interactively():
     try:
         actions = []
         main_action = ask_main_action()

@@ -32,6 +32,17 @@ bm
 If you did not add Brave Manager to your `PATH`, run `bin/bm` (macOS) or
 `bin\bm.bat` (Windows) in the unpacked folder instead.
 
+Brave Manager can also be driven non-interactively, for instance from CI. The
+following uninstalls all installed architectures and levels of a channel, then
+all installed updaters:
+
+```
+bm uninstall origin nightly --delete-profile
+bm uninstall updater
+```
+
+Run `bm --help` for the full list of commands.
+
 ## Development
 
 To run tests, execute the following in this directory:

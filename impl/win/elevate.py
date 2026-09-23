@@ -16,6 +16,9 @@ class SHELLEXECUTEINFOW(Structure):
         ('dwHotKey', DWORD), ('hIcon', HANDLE), ('hProcess', HANDLE)
     ]
 
+def is_elevated():
+    return windll.shell32.IsUserAnAdmin() != 0
+
 def run_elevated(command, cwd=None):
     # Uses ShellExecuteEx with the 'runas' verb, which shows a UAC prompt.
     info = SHELLEXECUTEINFOW()

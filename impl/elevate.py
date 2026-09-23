@@ -5,11 +5,16 @@ import json
 import sys
 
 if sys.platform == 'win32':
-    from impl.win.elevate import run_elevated
+    from impl.win.elevate import run_elevated, is_elevated
 else:
-    from impl.mac.elevate import run_elevated
+    from impl.mac.elevate import run_elevated, is_elevated
 
 def elevate(fn, *args):
+    if is_elevated():
+        # Eg. when run from an elevated terminal or CI agent. Calling fn here
+        # keeps its output and exceptions in this process.
+        fn(*args)
+        return
     fn_qualified_name = f'{fn.__module__}.{fn.__name__}'
     command = [
         sys.executable, '-m', __name__, fn_qualified_name, json.dumps(args)
