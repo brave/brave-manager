@@ -15,11 +15,10 @@ def main():
         apps_with_profiles = brave.get_apps_with_profiles()
         if main_action == 'install':
             product = ask_product()
-            if not product:
-                return
-            app = ask_app(product)
-            if not app:
-                return
+            channel = ask_channel(product)
+            architecture = ask_architecture(product)
+            is_system_level = ask_is_system_level()
+            app = product(is_system_level, architecture, channel)
             public_only = ask_public_only()
             version, installer_url = ask_installer_to_install(app, public_only)
             if app.is_installed:
@@ -31,9 +30,7 @@ def main():
                 actions.append(Launch(app))
         elif main_action == 'uninstall':
             product = ask_product()
-            if not product:
-                return
-            app = ask_app(product, installed_only=True)
+            app = ask_installed_app(product)
             if not app:
                 return
             actions.append(Uninstall(app))
@@ -49,9 +46,7 @@ def main():
             actions.append(DeleteProfile(app))
         elif main_action == 'launch':
             product = ask_product()
-            if not product:
-                return
-            app = ask_app(product, installed_only=True)
+            app = ask_installed_app(product)
             if not app:
                 return
             Launch(app)()
@@ -99,22 +94,39 @@ def ask_product():
         raise KeyboardInterrupt
     return choices[choice_text]
 
-def ask_app(product, installed_only=False):
+def ask_channel(product):
+    choices = {channel.title(): channel for channel in product.CHANNELS}
+    choice_text = select('Which channel?', choices)
+    if choice_text is None:
+        raise KeyboardInterrupt
+    return choices[choice_text]
+
+def ask_architecture(product):
+    choice = select('Which architecture?', product.SUPPORTED_ARCHITECTURES)
+    if choice is None:
+        raise KeyboardInterrupt
+    return choice
+
+def ask_is_system_level():
+    message = 'Install for the current user or system-wide?'
+    choices = {'current user': False, 'system-wide': True}
+    choice_text = select(message, choices)
+    if choice_text is None:
+        raise KeyboardInterrupt
+    return choices[choice_text]
+
+def ask_installed_app(product):
     choices = {}
     for app in product.get_apps():
         if app.is_installed:
             version = app.version
             version_text = f'installed at {version}' if version else 'installed'
-        elif installed_only:
-            continue
-        else:
-            version_text = 'not installed'
-        choices[f'{app.name} ({version_text})'] = app
+            choices[f'{app.name} ({version_text})'] = app
     if not choices:
         title = product.product_title
         print(f"You don't have any installed versions of {title}.")
         return None
-    choice_text = select('Which channel?', choices)
+    choice_text = select('Which installation?', choices)
     if choice_text is None:
         raise KeyboardInterrupt
     return choices[choice_text]
