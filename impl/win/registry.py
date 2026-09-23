@@ -4,6 +4,15 @@ def read_value(root, key, name):
     with OpenKey(root, key) as handle:
         return QueryValueEx(handle, name)[0]
 
+def list_subkeys(root, key):
+    result = []
+    with OpenKey(root, key) as handle:
+        while True:
+            try:
+                result.append(EnumKey(handle, len(result)))
+            except OSError:
+                return result
+
 def delete_key(root, key):
     try:
         handle = OpenKey(root, key)

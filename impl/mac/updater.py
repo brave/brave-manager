@@ -6,9 +6,9 @@ from shutil import rmtree
 from subprocess import run
 
 
-class BraveUpdater(App):
+class Omaha4(App):
 
-    product_title = 'Brave Updater'
+    product_title = 'Omaha 4'
 
     @property
     def dir(self):
@@ -36,7 +36,7 @@ class BraveUpdater(App):
             _uninstall(self.dir, False)
 
 
-UPDATERS = (BraveUpdater,)
+UPDATERS = (Omaha4,)
 
 
 def _uninstall(updater_dir, is_system_level):

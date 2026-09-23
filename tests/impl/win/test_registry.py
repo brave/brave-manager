@@ -1,4 +1,4 @@
-from impl.win.registry import read_value, delete_key
+from impl.win.registry import read_value, list_subkeys, delete_key
 from unittest import TestCase
 from winreg import HKEY_CURRENT_USER, CreateKey, SetValueEx, OpenKey, \
     REG_SZ
@@ -18,6 +18,13 @@ class RegistryTest(TestCase):
             read_value(HKEY_CURRENT_USER, key, 'missing')
         with self.assertRaises(FileNotFoundError):
             read_value(HKEY_CURRENT_USER, KEY + r'\x', 'name')
+    def test_list_subkeys(self):
+        self.assertEqual(['child'], list_subkeys(HKEY_CURRENT_USER, KEY))
+        self.assertEqual(
+            [], list_subkeys(HKEY_CURRENT_USER, KEY + r'\child\grandchild')
+        )
+        with self.assertRaises(FileNotFoundError):
+            list_subkeys(HKEY_CURRENT_USER, KEY + r'\x')
     def test_delete_key(self):
         delete_key(HKEY_CURRENT_USER, KEY)
         with self.assertRaises(FileNotFoundError):

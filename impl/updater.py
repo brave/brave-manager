@@ -1,4 +1,9 @@
-from impl.mac.updater import UPDATERS
+import sys
+
+if sys.platform == 'win32':
+    from impl.win.updater import UPDATERS
+else:
+    from impl.mac.updater import UPDATERS
 
 def get_installed_updaters():
     return [

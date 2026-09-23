@@ -59,7 +59,7 @@ def main():
         elif main_action == 'uninstall_updater':
             installed_updaters = updater.get_installed_updaters()
             if not installed_updaters:
-                print("You don't have Brave Updater installed.")
+                print("You don't have any updaters installed.")
                 return
             to_uninstall = ask_which_updater_to_uninstall(installed_updaters)
             if not to_uninstall:
@@ -83,7 +83,7 @@ def ask_main_action():
         'Uninstall': 'uninstall',
         'Launch': 'launch',
         'Delete a profile': 'delete_profile',
-        'Uninstall Brave Updater': 'uninstall_updater',
+        'Uninstall an updater': 'uninstall_updater',
         f'Clear the cache ({cache_size_text} in {cache_dir})': 'clear_cache'
     }
     choice_text = select(message, choices, instruction)
