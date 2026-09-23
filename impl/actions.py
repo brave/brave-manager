@@ -31,9 +31,9 @@ class DeleteProfile:
     def __init__(self, app):
         self.app = app
     def __str__(self):
-        return f'Delete {self.app} profile'
+        return f'Delete {self.app.title} profile'
     def __call__(self):
-        with print_done(f'Deleting {self.app} profile'):
+        with print_done(f'Deleting {self.app.title} profile'):
             self.app.delete_profile()
 
 class Launch:

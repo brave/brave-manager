@@ -53,9 +53,11 @@ class Browser(App):
     def _details(self):
         return [self.architecture] + super()._details
 
-    def __str__(self):
+    @property
+    def title(self):
         if self.channel == 'release':
-            result = self.product_title
-        else:
-            result = f'{self.product_title} {self.channel.title()}'
-        return self._with_details(result)
+            return self.product_title
+        return f'{self.product_title} {self.channel.title()}'
+
+    def __str__(self):
+        return self._with_details(self.title)

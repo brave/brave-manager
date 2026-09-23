@@ -15,4 +15,10 @@ def get_all_apps():
 
 
 def get_apps_with_profiles():
-    return [app for app in get_all_apps() if app.has_profile]
+    # All architectures and levels of a channel share one profile. Only return
+    # one app per profile:
+    result = {}
+    for app in get_all_apps():
+        if app.has_profile:
+            result[tuple(app.profile_paths)] = app
+    return list(result.values())

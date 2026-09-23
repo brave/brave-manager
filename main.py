@@ -12,7 +12,6 @@ def main():
     try:
         actions = []
         main_action = ask_main_action()
-        apps_with_profiles = brave.get_apps_with_profiles()
         if main_action == 'install':
             product = ask_product()
             channel = ask_channel(product)
@@ -23,7 +22,7 @@ def main():
             version, installer_url = ask_installer_to_install(app, public_only)
             if app.is_installed:
                 actions.append(Uninstall(app))
-            if app in apps_with_profiles and ask_delete_profile():
+            if app.has_profile and ask_delete_profile():
                 actions.append(DeleteProfile(app))
             actions.append(app.create_install_action(version, installer_url))
             if ask_launch_after_install():
@@ -34,9 +33,10 @@ def main():
             if not app:
                 return
             actions.append(Uninstall(app))
-            if app in apps_with_profiles and ask_delete_profile():
+            if app.has_profile and ask_delete_profile():
                 actions.append(DeleteProfile(app))
         elif main_action == 'delete_profile':
+            apps_with_profiles = brave.get_apps_with_profiles()
             if not apps_with_profiles:
                 print("You don't have any profiles to delete.")
                 return
@@ -179,7 +179,7 @@ def ask_launch_after_install():
 
 def ask_which_profile_to_delete(apps):
     message = 'Which profile do you want to delete?'
-    choices = {str(app): app for app in apps}
+    choices = {app.title: app for app in apps}
     choice = select(message, choices)
     if choice is None:
         raise KeyboardInterrupt
