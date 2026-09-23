@@ -1,17 +1,15 @@
-from ctypes import byref, c_uint, c_void_p, create_string_buffer, string_at
 from impl.actions import Install
 from impl.browser import Browser
 from impl.elevate import elevate
 from impl.win import registry
 from impl.win.elevate import run_elevated
+from impl.win.util import get_architecture, get_file_version
 from os import SEEK_END
 from os.path import exists, join, dirname, basename
 from shutil import rmtree
-from struct import unpack
 from subprocess import run
 from winreg import HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE
 
-import ctypes
 import os
 import re
 
@@ -81,7 +79,7 @@ class WindowsBrowser(Browser):
         brave_exe = self.brave_exe
         if brave_exe is None:
             return None
-        return _get_file_version(brave_exe)
+        return get_file_version(brave_exe)
 
     @property
     def profile_paths(self):
@@ -124,7 +122,7 @@ class WindowsBrowser(Browser):
         if not exists(result):
             return None
         # Program Files holds both x64 and arm64 builds:
-        if _get_architecture(result) != self.architecture:
+        if get_architecture(result) != self.architecture:
             return None
         return result
 
@@ -182,29 +180,3 @@ def _get_brave_software_dir(architecture, is_system_level):
     else:
         env_var = 'PROGRAMFILES'
     return join(os.environ[env_var], 'BraveSoftware')
-
-
-def _get_architecture(executable_path):
-    with open(executable_path, 'rb') as f:
-        f.seek(0x3c)
-        pe_header_offset = int.from_bytes(f.read(4), 'little')
-        f.seek(pe_header_offset)
-        signature = f.read(4)
-        machine = int.from_bytes(f.read(2), 'little')
-    if signature != b'PE\0\0':
-        raise ValueError(f'Unknown executable format: {executable_path}')
-    return {0x8664: 'x64', 0x014c: 'x86', 0xaa64: 'arm64'}[machine]
-
-
-def _get_file_version(executable_path):
-    version_dll = ctypes.windll.version
-    size = version_dll.GetFileVersionInfoSizeW(executable_path, None)
-    if not size:
-        raise ctypes.WinError()
-    data = create_string_buffer(size)
-    version_dll.GetFileVersionInfoW(executable_path, 0, size, data)
-    info = c_void_p()
-    version_dll.VerQueryValueW(data, '\\', byref(info), byref(c_uint()))
-    # dwFileVersionMS and dwFileVersionLS are at offset 8 of VS_FIXEDFILEINFO:
-    ms, ls = unpack('II', string_at(info.value + 8, 8))
-    return f'{ms >> 16}.{ms & 0xffff}.{ls >> 16}.{ls & 0xffff}'

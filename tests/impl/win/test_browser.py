@@ -1,4 +1,5 @@
-from impl.win.browser import _get_architecture, _read_tag, Brave, Origin
+from impl.win.browser import _read_tag, Brave, Origin
+from impl.win.util import get_architecture
 from os.path import join
 from tempfile import TemporaryDirectory
 from unittest import TestCase
@@ -23,7 +24,7 @@ class GetArchitectureTest(TestCase):
             path = join(tmp_dir, 'brave.exe')
             with open(path, 'wb') as f:
                 f.write(contents)
-            self.assertEqual(expected, _get_architecture(path))
+            self.assertEqual(expected, get_architecture(path))
 
 class ReadTagTest(TestCase):
     def test_read_tag(self):
