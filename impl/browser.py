@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 from impl.app import App
-from os import remove
-from os.path import exists, isdir
+from os import remove, walk, chmod
+from os.path import exists, isdir, join
 from shutil import rmtree
+from stat import S_IWRITE
 
 
 @dataclass(frozen=True)
@@ -41,7 +42,7 @@ class Browser(App):
     def delete_profile(self):
         for path in self.profile_paths:
             if isdir(path):
-                rmtree(path)
+                _rmtree(path)
             elif exists(path):
                 remove(path)
 
@@ -63,3 +64,14 @@ class Browser(App):
 
     def __str__(self):
         return self._with_details(self.title)
+
+
+def _rmtree(path):
+    try:
+        rmtree(path)
+    except PermissionError:
+        # Windows refuses to delete read-only files. Profiles contain some:
+        for parent_dir, _, file_names in walk(path):
+            for file_name in file_names:
+                chmod(join(parent_dir, file_name), S_IWRITE)
+        rmtree(path)
