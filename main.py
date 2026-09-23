@@ -134,7 +134,7 @@ def ask_installed_app(product):
     return choices[choice_text]
 
 def ask_public_only():
-    message = 'Should the version you want to install be public?'
+    message = 'Must the version you want to install be public?'
     choice = select(message, ['yes', 'no'])
     if choice is None:
         raise KeyboardInterrupt
