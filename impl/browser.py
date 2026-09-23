@@ -9,6 +9,8 @@ from shutil import rmtree
 class Browser(App):
 
     CHANNELS = ('nightly', 'dev', 'beta', 'release')
+    # Brave stopped publishing Dev releases in November 2023:
+    INSTALLABLE_CHANNELS = ('nightly', 'beta', 'release')
     SUPPORTED_ARCHITECTURES = ('x64', 'arm64')
 
     architecture: str

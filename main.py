@@ -95,7 +95,9 @@ def ask_product():
     return choices[choice_text]
 
 def ask_channel(product):
-    choices = {channel.title(): channel for channel in product.CHANNELS}
+    choices = {
+        channel.title(): channel for channel in product.INSTALLABLE_CHANNELS
+    }
     choice_text = select('Which channel?', choices)
     if choice_text is None:
         raise KeyboardInterrupt
