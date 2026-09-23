@@ -1,9 +1,7 @@
-from impl import brave, cache
-from impl.actions import Uninstall, Launch, ClearCache, UninstallUpdater, \
-    DeleteProfile
+from impl import brave, cache, updater
+from impl.actions import Uninstall, Launch, ClearCache, DeleteProfile
 from impl.brave import PRODUCTS
 from impl.cache import CACHE_DIR
-from impl.mac import updater
 from impl.releases import get_releases, group_by_minor_version
 from impl.util import select, human_readable_size
 from os.path import expanduser
@@ -66,7 +64,7 @@ def main():
             to_uninstall = ask_which_updater_to_uninstall(installed_updaters)
             if not to_uninstall:
                 return
-            actions.append(UninstallUpdater(to_uninstall))
+            actions.append(Uninstall(to_uninstall))
         elif main_action == 'clear_cache':
             actions.append(ClearCache())
         if ask_confirm_actions(actions):
@@ -176,10 +174,11 @@ def ask_which_profile_to_delete(apps):
 
 def ask_which_updater_to_uninstall(installed_updaters):
     message = 'Which updater do you want to uninstall?'
-    choice = select(message, installed_updaters)
+    choices = {str(app): app for app in installed_updaters}
+    choice = select(message, choices)
     if choice is None:
         raise KeyboardInterrupt
-    return choice
+    return choices[choice]
 
 def ask_confirm_actions(actions):
     message_parts = ['I will perform the following actions:']

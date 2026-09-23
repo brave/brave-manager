@@ -1,6 +1,4 @@
 from impl import cache
-from impl.mac import updater
-from impl.elevate import elevate
 from impl.util import print_done, FileDownloader
 from os.path import exists, basename
 from tqdm import tqdm
@@ -45,17 +43,6 @@ class Launch:
         return f'Launch {self.app}'
     def __call__(self):
         self.app.launch()
-
-class UninstallUpdater:
-    def __init__(self, scope):
-        self.scope = scope
-    def __str__(self):
-        return f'Uninstall Brave Updater ({self.scope})'
-    def __call__(self):
-        if self.scope == 'system':
-            elevate(updater.uninstall, self.scope)
-        else:
-            updater.uninstall(self.scope)
 
 class ClearCache:
     def __str__(self):

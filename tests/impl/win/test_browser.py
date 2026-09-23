@@ -45,15 +45,15 @@ class ReadTagTest(TestCase):
 
 class AcceptsInstallerTest(TestCase):
     def test_nightly_x64(self):
-        self._check(Brave('nightly', 'x64', is_system_level=False), [
+        self._check(Brave('x64', False, 'nightly'), [
             'BraveBrowserStandaloneNightlySetup.exe'
         ])
     def test_release_x86_system(self):
-        self._check(Brave('release', 'x86', is_system_level=True), [
+        self._check(Brave('x86', True, 'release'), [
             'BraveBrowserStandaloneSetup32.exe'
         ])
     def test_origin_beta_arm64(self):
-        self._check(Origin('beta', 'arm64', is_system_level=False), [
+        self._check(Origin('arm64', False, 'beta'), [
             'BraveOriginStandaloneBetaSetupArm64.exe'
         ])
     def _check(self, browser, expected):
