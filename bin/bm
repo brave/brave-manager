@@ -1,0 +1,4 @@
+#!/bin/sh
+
+project_dir="$(dirname "$0")/.."
+exec "$project_dir/venv/bin/python" "$project_dir/main.py" "$@"
