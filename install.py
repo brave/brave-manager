@@ -7,7 +7,8 @@ def main():
     ensure_venv_exists()
     install_dependencies()
     bin_dir = get_project_file('bin')
-    if ask_yes_no(f'Add {bin_dir} to your PATH?'):
+    # Don't touch the PATH when run non-interactively, eg. from CI:
+    if sys.stdin.isatty() and ask_yes_no(f'Add {bin_dir} to your PATH?'):
         add_to_path(bin_dir)
         print(
             'Done. Open a new terminal. Then you can run Brave Manager by '

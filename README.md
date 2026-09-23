@@ -32,7 +32,8 @@ bm
 If you did not add Brave Manager to your `PATH`, run `bin/bm` (macOS) or
 `bin\bm.bat` (Windows) in the unpacked folder instead.
 
-Brave Manager can also be driven non-interactively, for instance from CI. The
+Brave Manager can also be driven non-interactively, for instance from CI.
+When `install.py` runs without a terminal, it skips the `PATH` question. The
 following uninstalls all installed architectures and levels of a channel, then
 all installed updaters:
 
