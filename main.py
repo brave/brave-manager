@@ -111,7 +111,8 @@ def ask_app(product, installed_only=False):
             version_text = 'not installed'
         choices[f'{app.name} ({version_text})'] = app
     if not choices:
-        print(f"You don't have any installed versions of {product}.")
+        title = product.product_title
+        print(f"You don't have any installed versions of {title}.")
         return None
     choice_text = select('Which channel?', choices)
     if choice_text is None:
