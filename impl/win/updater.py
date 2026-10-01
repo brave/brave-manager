@@ -4,7 +4,7 @@ from impl.elevate import elevate
 from impl.win import registry
 from impl.win.browser import UPDATE_LOG_PATH
 from os import listdir, remove
-from os.path import join
+from os.path import dirname, exists, join
 from shutil import rmtree
 from subprocess import run
 from tempfile import gettempdir
@@ -26,7 +26,12 @@ class Omaha3(App):
 
     @property
     def is_installed(self):
-        return self.version is not None
+        # When Omaha 4 takes over, it writes its own version to Omaha 3's
+        # registry key and leaves a copy of itself at Omaha 3's path. So
+        # neither the key nor the file prove that Omaha 3 is installed. Only an
+        # Omaha 3 version does. Omaha 4's versions follow the browser's.
+        version = self.version
+        return version is not None and version.startswith('1.3.')
 
     @property
     def version(self):
@@ -92,12 +97,10 @@ class Omaha4(App):
         return '.'.join(map(str, max(versions)))
 
     def uninstall(self):
-        command = [join(self.dir, self.version, 'updater.exe'), '--uninstall']
         if self.is_system_level:
-            command.append('--system')
-            elevate(run, command)
+            elevate(_uninstall_omaha4, True)
         else:
-            run(command, check=True)
+            _uninstall_omaha4(False)
 
     @property
     def dir(self):
@@ -121,6 +124,34 @@ def _uninstall_omaha3(is_system_level):
             registry.delete_key(root, rf'{key}\Clients\{guid}')
     run([omaha3.exe, '/uninstall'])
     _delete_omaha3_temp_files(is_system_level)
+
+
+def _uninstall_omaha4(is_system_level):
+    omaha4 = Omaha4(is_system_level)
+    exe = join(omaha4.dir, omaha4.version, 'updater.exe')
+    # The uninstaller deletes the installation directory asynchronously after
+    # it exits. An interrupted or failed earlier uninstall can leave the
+    # directory without the executable.
+    if exists(exe):
+        command = [exe, '--uninstall']
+        if is_system_level:
+            command.append('--system')
+        run(command, check=True)
+    rmtree(omaha4.dir, ignore_errors=True)
+    _delete_omaha4_takeover_remnants(is_system_level)
+
+
+def _delete_omaha4_takeover_remnants(is_system_level):
+    # Omaha 4's takeover writes its version into Omaha 3's registry key and puts
+    # a copy of itself at BraveUpdate.exe. Its uninstaller does not clean these
+    # up. Omaha 3's installer would then refuse to install itself.
+    omaha3 = Omaha3(is_system_level)
+    root, key = omaha3.registry_key
+    for name in ('version', 'UninstallCmdLine', 'path'):
+        registry.delete_value(root, key, name)
+    for subkey in ('Clients', 'ClientState'):
+        registry.delete_key(root, rf'{key}\{subkey}\{OMAHA3_GUID}')
+    rmtree(dirname(omaha3.exe), ignore_errors=True)
 
 
 def _delete_omaha3_temp_files(is_system_level):

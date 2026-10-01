@@ -1,4 +1,6 @@
-from winreg import OpenKey, EnumKey, DeleteKey, QueryValueEx
+from winreg import (
+    OpenKey, EnumKey, DeleteKey, DeleteValue, QueryValueEx, KEY_SET_VALUE
+)
 
 def read_value(root, key, name):
     with OpenKey(root, key) as handle:
@@ -26,3 +28,14 @@ def delete_key(root, key):
                 break
             delete_key(handle, subkey)
     DeleteKey(root, key)
+
+def delete_value(root, key, name):
+    try:
+        handle = OpenKey(root, key, 0, KEY_SET_VALUE)
+    except FileNotFoundError:
+        return
+    with handle:
+        try:
+            DeleteValue(handle, name)
+        except FileNotFoundError:
+            pass
