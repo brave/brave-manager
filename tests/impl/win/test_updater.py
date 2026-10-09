@@ -1,7 +1,8 @@
 from impl.win.registry import delete_key
 from impl.win.updater import (
-    _delete_dir, _find_com_registrations, _find_progids,
-    _find_tasks_recursively, _is_omaha3_service, _is_omaha4_service
+    _delete_dir, _find_com_registrations, _find_com_service_registrations,
+    _find_progids, _find_tasks_recursively, _is_omaha3_service,
+    _is_omaha4_service, OMAHA3_SERVICE_PREFIX, OMAHA4_SERVICE_PREFIXES
 )
 from os import environ, mkdir
 from os.path import exists, join
@@ -9,7 +10,7 @@ from tempfile import TemporaryDirectory
 from threading import Timer
 from unittest import TestCase
 from unittest.mock import patch
-from winreg import HKEY_CURRENT_USER, CreateKey, SetValue, REG_SZ
+from winreg import HKEY_CURRENT_USER, CreateKey, SetValue, SetValueEx, REG_SZ
 
 KEY = r'SOFTWARE\brave-manager-test'
 
@@ -59,6 +60,41 @@ class FindComRegistrationsTest(TestCase):
     def _add_type_library(self, libid, path):
         key = KEY + rf'\TypeLib\{libid}\1.0\0\win64'
         SetValue(HKEY_CURRENT_USER, key, REG_SZ, path)
+
+class FindComServiceRegistrationsTest(TestCase):
+    def setUp(self):
+        self._add_appid('{O3}', LocalService='bravem1dc8a3b2f0e1d')
+        self._add_appid('BraveUpdate.exe', AppID='{o3}')
+        self._add_appid('{O4}', LocalService='BraveUpdaterService1.2.3.4')
+        self._add_appid('{E}', LocalService='BraveElevationService')
+        self._add_appid('elevation_service.exe', AppID='{E}')
+        for clsid, appid in (('{A}', '{O3}'), ('{B}', '{o4}'), ('{C}', '{E}')):
+            self._set_value(rf'\CLSID\{clsid}', 'AppID', appid)
+    def tearDown(self):
+        delete_key(HKEY_CURRENT_USER, KEY)
+    def test_omaha3(self):
+        self.assertEqual([
+            KEY + r'\AppID\BraveUpdate.exe', KEY + r'\AppID\{O3}',
+            KEY + r'\CLSID\{A}'
+        ], self._find((OMAHA3_SERVICE_PREFIX,)))
+    def test_omaha4(self):
+        self.assertEqual(
+            [KEY + r'\AppID\{O4}', KEY + r'\CLSID\{B}'],
+            self._find(OMAHA4_SERVICE_PREFIXES)
+        )
+    def test_no_appids(self):
+        delete_key(HKEY_CURRENT_USER, KEY)
+        self.assertEqual([], self._find(OMAHA4_SERVICE_PREFIXES))
+    def _add_appid(self, name, **values):
+        for value_name, value in values.items():
+            self._set_value(rf'\AppID\{name}', value_name, value)
+    def _set_value(self, subkey, name, value):
+        with CreateKey(HKEY_CURRENT_USER, KEY + subkey) as key:
+            SetValueEx(key, name, 0, REG_SZ, value)
+    def _find(self, service_prefixes):
+        return sorted(_find_com_service_registrations(
+            HKEY_CURRENT_USER, KEY, service_prefixes
+        ))
 
 class FindProgidsTest(TestCase):
     def setUp(self):

@@ -25,6 +25,10 @@ OMAHA4_RUN_VALUE_PREFIX = 'BraveUpdaterTaskUser'
 
 # System-wide installations register services:
 SERVICES_KEY = r'SYSTEM\CurrentControlSet\Services'
+# Optionally followed by a timestamp:
+OMAHA3_SERVICE_PREFIX = 'brave'
+# Followed by the version:
+OMAHA4_SERVICE_PREFIXES = ('BraveUpdaterService', 'BraveUpdaterInternalService')
 
 # 64-bit and 32-bit COM registrations live in separate views:
 CLASSES_KEYS = (r'SOFTWARE\Classes', r'SOFTWARE\Classes\WOW6432Node')
@@ -242,7 +246,7 @@ def _is_omaha3_service(name, display_name, image_path):
     # But Omaha 3 takes the display name from its localized resources. So we
     # also check the path:
     return (
-        name.startswith('brave')
+        name.startswith(OMAHA3_SERVICE_PREFIX)
         and display_name.startswith('Brave Update Service')
     ) or _is_in_dir(image_path, dirname(Omaha3(True).exe))
 
@@ -406,14 +410,17 @@ def _delete_omaha4_com_registrations(is_system_level):
 
 def _find_omaha4_com_registrations(is_system_level):
     # Omaha 4's classes, and the type libraries of its interfaces, point into
-    # its installation directory:
+    # its installation directory. Its service hosts the classes of system-wide
+    # installations:
     root = HKEY_LOCAL_MACHINE if is_system_level else HKEY_CURRENT_USER
     dir_path = Omaha4(is_system_level).dir
-    return [
-        (root, key)
-        for classes_key in CLASSES_KEYS
-        for key in _find_com_registrations(root, classes_key, dir_path)
-    ]
+    keys = []
+    for classes_key in CLASSES_KEYS:
+        keys += _find_com_registrations(root, classes_key, dir_path)
+        keys += _find_com_service_registrations(
+            root, classes_key, OMAHA4_SERVICE_PREFIXES
+        )
+    return [(root, key) for key in keys]
 
 
 def _delete_omaha3_com_registrations(is_system_level):
@@ -423,12 +430,16 @@ def _delete_omaha3_com_registrations(is_system_level):
 
 def _find_omaha3_com_registrations(is_system_level):
     # Omaha 3's classes, and the interfaces they proxy, point into its
-    # installation directory:
+    # installation directory. Its services host some of the classes of
+    # system-wide installations:
     root = HKEY_LOCAL_MACHINE if is_system_level else HKEY_CURRENT_USER
     dir_path = dirname(Omaha3(is_system_level).exe)
     keys = []
     for classes_key in CLASSES_KEYS:
         keys += _find_com_registrations(root, classes_key, dir_path)
+        keys += _find_com_service_registrations(
+            root, classes_key, (OMAHA3_SERVICE_PREFIX,)
+        )
     # Omaha 3's ProgIDs point to classes, not into the directory. Some of those
     # classes were taken over by Omaha 4, whose uninstaller deleted them. So we
     # recognize the ProgIDs by name. They are not split by view:
@@ -464,6 +475,34 @@ def _find_com_registrations(root, classes_key, dir_path):
         result.append(rf'{classes_key}\CLSID\{clsid}')
     for libid in libids:
         result.append(rf'{classes_key}\TypeLib\{libid}')
+    return result
+
+
+def _find_com_service_registrations(root, classes_key, service_prefixes):
+    """
+    Returns the keys of the AppIDs whose LocalService starts with one of the
+    given prefixes, and of the classes and AppID entries that refer to them.
+    """
+    appids_key = rf'{classes_key}\AppID'
+    names = _list_subkeys_if_exists(root, appids_key)
+    appids = set()
+    for name in names:
+        service = _read_string(root, rf'{appids_key}\{name}', 'LocalService')
+        if service.startswith(service_prefixes):
+            appids.add(name.upper())
+    if not appids:
+        return []
+    result = []
+    for name in names:
+        appid_key = rf'{appids_key}\{name}'
+        # Eg. an entry for the server's executable name:
+        refers_to = _read_string(root, appid_key, 'AppID').upper()
+        if name.upper() in appids or refers_to in appids:
+            result.append(appid_key)
+    for clsid in _list_subkeys_if_exists(root, rf'{classes_key}\CLSID'):
+        clsid_key = rf'{classes_key}\CLSID\{clsid}'
+        if _read_string(root, clsid_key, 'AppID').upper() in appids:
+            result.append(clsid_key)
     return result
 
 
