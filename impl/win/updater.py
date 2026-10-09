@@ -158,13 +158,11 @@ def _delete_dir(path, timeout_seconds=30):
 def _delete_omaha4_takeover_remnants(is_system_level):
     # Omaha 4's takeover writes its version into Omaha 3's registry key and puts
     # a copy of itself at BraveUpdate.exe. Its uninstaller does not clean these
-    # up. Omaha 3's installer would then refuse to install itself.
+    # up. Omaha 3's installer would then refuse to install itself. The key also
+    # keeps Omaha 3's own state, Omaha 4's registration and those of the apps.
+    # Omaha 3's uninstaller deletes all of these, so we delete the whole key:
     omaha3 = Omaha3(is_system_level)
-    root, key = omaha3.registry_key
-    for name in ('version', 'UninstallCmdLine', 'path'):
-        registry.delete_value(root, key, name)
-    for subkey in ('Clients', 'ClientState'):
-        registry.delete_key(root, rf'{key}\{subkey}\{OMAHA3_GUID}')
+    registry.delete_key(*omaha3.registry_key)
     rmtree(dirname(omaha3.exe), ignore_errors=True)
 
 

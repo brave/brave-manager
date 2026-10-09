@@ -1,6 +1,4 @@
-from impl.win.registry import (
-    read_value, list_subkeys, delete_key, delete_value
-)
+from impl.win.registry import read_value, list_subkeys, delete_key
 from unittest import TestCase
 from winreg import HKEY_CURRENT_USER, CreateKey, SetValueEx, OpenKey, \
     REG_SZ
@@ -33,12 +31,3 @@ class RegistryTest(TestCase):
             OpenKey(HKEY_CURRENT_USER, KEY)
         # Deleting a non-existent key is a no-op:
         delete_key(HKEY_CURRENT_USER, KEY)
-    def test_delete_value(self):
-        key = KEY + r'\child\grandchild'
-        delete_value(HKEY_CURRENT_USER, key, 'name')
-        with self.assertRaises(FileNotFoundError):
-            read_value(HKEY_CURRENT_USER, key, 'name')
-        # Deleting a non-existent value or key is a no-op:
-        delete_value(HKEY_CURRENT_USER, key, 'name')
-        delete_value(HKEY_CURRENT_USER, KEY + r'\x', 'name')
-
