@@ -2,6 +2,7 @@ from impl.win.task_scheduler import list_folder, delete_task, delete_folder
 from pywintypes import com_error
 from subprocess import run
 from unittest import TestCase
+from unittest.mock import patch
 
 FOLDER = r'\brave-manager-test'
 
@@ -29,6 +30,17 @@ class TaskSchedulerTest(TestCase):
     def test_delete_non_empty_folder(self):
         with self.assertRaises(com_error):
             delete_folder(FOLDER + r'\sub')
+    def test_delete_folder_without_permission(self):
+        # How the Task Scheduler reports E_ACCESSDENIED:
+        error = com_error(
+            -2147352567, 'Exception occurred.',
+            (0, None, None, None, 0, -2147024891), None
+        )
+        with patch('impl.win.task_scheduler._connect') as connect:
+            folder = connect.return_value.GetFolder.return_value
+            folder.DeleteFolder.side_effect = error
+            with self.assertRaises(PermissionError):
+                delete_folder(FOLDER)
     def _create_task(self, path):
         # A one-off task at 00:00 today is in the past and never runs. /SD
         # would expect a localized date format, so we don't pass it.

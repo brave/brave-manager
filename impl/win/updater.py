@@ -330,7 +330,12 @@ def _delete_tasks(tasks, folders=()):
     for path in tasks:
         task_scheduler.delete_task(path)
     for path in folders:
-        task_scheduler.delete_folder(path)
+        try:
+            task_scheduler.delete_folder(path)
+        except PermissionError:
+            # All users share the folders of per-user tasks. When an elevated
+            # process created one, only administrators can delete it:
+            elevate(task_scheduler.delete_folder, path)
 
 
 def _find_run_values(is_system_level, prefix):

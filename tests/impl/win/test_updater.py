@@ -1,6 +1,7 @@
 from impl.win.registry import delete_key
 from impl.win.updater import (
-    _delete_dir, _find_com_registrations, _find_com_service_registrations,
+    _delete_dir, _delete_tasks, _find_com_registrations,
+    _find_com_service_registrations,
     _find_progids, _find_tasks_recursively, _is_omaha3_service,
     _is_omaha4_service, OMAHA3_SERVICE_PREFIX, OMAHA4_SERVICE_PREFIXES
 )
@@ -143,6 +144,14 @@ class FindTasksRecursivelyTest(TestCase):
     def _find(self, folder, is_system_level):
         with patch('impl.win.task_scheduler.list_folder', self.FOLDERS.get):
             return _find_tasks_recursively(folder, is_system_level)
+
+class DeleteTasksTest(TestCase):
+    def test_elevates_if_permission_denied(self):
+        with patch(
+            'impl.win.task_scheduler.delete_folder', side_effect=PermissionError
+        ) as delete_folder, patch('impl.win.updater.elevate') as elevate:
+            _delete_tasks([], [r'\BraveSoftwareUser'])
+        elevate.assert_called_once_with(delete_folder, r'\BraveSoftwareUser')
 
 class IsServiceTest(TestCase):
     BRAVE_SOFTWARE = join(environ['PROGRAMFILES(X86)'], 'BraveSoftware')

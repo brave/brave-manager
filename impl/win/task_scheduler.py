@@ -7,6 +7,8 @@ import win32security
 
 # HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND):
 _NOT_FOUND = -2147024894
+# HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED):
+_ACCESS_DENIED = -2147024891
 _TASK_ENUM_HIDDEN = 1
 
 
@@ -38,9 +40,17 @@ def delete_task(path):
 
 
 def delete_folder(path):
-    """Fails if the folder is not empty."""
+    """
+    Fails if the folder is not empty. Raises PermissionError if the current
+    user may not delete it.
+    """
     parent, name = _split(path)
-    _connect().GetFolder(parent).DeleteFolder(name, 0)
+    try:
+        _connect().GetFolder(parent).DeleteFolder(name, 0)
+    except pywintypes.com_error as e:
+        if _get_hresult(e) == _ACCESS_DENIED:
+            raise PermissionError(f'Cannot delete task folder {path}') from e
+        raise
 
 
 def _connect():
