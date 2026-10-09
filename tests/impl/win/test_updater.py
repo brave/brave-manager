@@ -1,6 +1,6 @@
-from impl.win.registry import delete_key, list_subkeys
+from impl.win.registry import delete_key
 from impl.win.updater import (
-    _delete_com_registrations, _delete_dir, _delete_progids
+    _delete_dir, _find_com_registrations, _find_progids
 )
 from os import mkdir
 from os.path import exists, join
@@ -11,7 +11,7 @@ from winreg import HKEY_CURRENT_USER, CreateKey, SetValue, REG_SZ
 
 KEY = r'SOFTWARE\brave-manager-test'
 
-class DeleteComRegistrationsTest(TestCase):
+class FindComRegistrationsTest(TestCase):
     def setUp(self):
         # Like Omaha 3: one proxy/stub for all interfaces, and a COM server.
         self._add_class('{A}', 'InprocServer32', r'C:\Update\1.3\psuser.dll')
@@ -24,23 +24,25 @@ class DeleteComRegistrationsTest(TestCase):
             pass
     def tearDown(self):
         delete_key(HKEY_CURRENT_USER, KEY)
-    def test_delete_com_registrations(self):
-        _delete_com_registrations(HKEY_CURRENT_USER, KEY, r'C:\Update')
-        self.assertEqual(['{C}', '{D}'], self._list(r'\CLSID'))
-        self.assertEqual(['{2}', '{3}'], self._list(r'\Interface'))
+    def test_find_com_registrations(self):
+        keys = _find_com_registrations(HKEY_CURRENT_USER, KEY, r'C:\Update')
+        self.assertEqual(
+            [KEY + r'\CLSID\{A}', KEY + r'\CLSID\{B}', KEY + r'\Interface\{1}'],
+            sorted(keys)
+        )
     def test_no_classes(self):
         delete_key(HKEY_CURRENT_USER, KEY)
-        _delete_com_registrations(HKEY_CURRENT_USER, KEY, r'C:\Update')
+        self.assertEqual(
+            [], _find_com_registrations(HKEY_CURRENT_USER, KEY, r'C:\Update')
+        )
     def _add_class(self, clsid, server, path):
         server_key = KEY + rf'\CLSID\{clsid}\{server}'
         SetValue(HKEY_CURRENT_USER, server_key, REG_SZ, path)
     def _add_interface(self, iid, proxy_stub):
         proxy_stub_key = KEY + rf'\Interface\{iid}\ProxyStubClsid32'
         SetValue(HKEY_CURRENT_USER, proxy_stub_key, REG_SZ, proxy_stub)
-    def _list(self, subkey):
-        return sorted(list_subkeys(HKEY_CURRENT_USER, KEY + subkey))
 
-class DeleteProgidsTest(TestCase):
+class FindProgidsTest(TestCase):
     def setUp(self):
         for progid in (
             'BraveSoftwareUpdate.Update3COMClassUser',
@@ -53,12 +55,13 @@ class DeleteProgidsTest(TestCase):
                 pass
     def tearDown(self):
         delete_key(HKEY_CURRENT_USER, KEY)
-    def test_delete_progids(self):
-        _delete_progids(HKEY_CURRENT_USER, KEY, 'BraveSoftwareUpdate.')
-        self.assertEqual(
-            ['BraveSoftwareUpdater.Other', 'Other'],
-            sorted(list_subkeys(HKEY_CURRENT_USER, KEY))
-        )
+    def test_find_progids(self):
+        keys = _find_progids(HKEY_CURRENT_USER, KEY, 'BraveSoftwareUpdate.')
+        self.assertEqual([
+            KEY + r'\BraveSoftwareUpdate.Update3COMClassUser',
+            KEY + r'\BraveSoftwareUpdate.Update3COMClassUser.1.0',
+            KEY + r'\bravesoftwareupdate.PolicyStatusUser'
+        ], sorted(keys))
 
 class DeleteDirTest(TestCase):
     def test_retries_while_file_is_locked(self):

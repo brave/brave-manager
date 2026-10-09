@@ -175,23 +175,30 @@ def _delete_shared_remnants(is_system_level):
 
 
 def _delete_omaha3_com_registrations(is_system_level):
+    for root, key in _find_omaha3_com_registrations(is_system_level):
+        registry.delete_key(root, key)
+
+
+def _find_omaha3_com_registrations(is_system_level):
     # Omaha 3's classes, and the interfaces they proxy, point into its
     # installation directory. 64-bit and 32-bit registrations live in separate
     # views:
     root = HKEY_LOCAL_MACHINE if is_system_level else HKEY_CURRENT_USER
     dir_path = dirname(Omaha3(is_system_level).exe)
+    keys = []
     for classes_key in (r'SOFTWARE\Classes', r'SOFTWARE\Classes\WOW6432Node'):
-        _delete_com_registrations(root, classes_key, dir_path)
+        keys += _find_com_registrations(root, classes_key, dir_path)
     # Omaha 3's ProgIDs point to classes, not into the directory. Some of those
     # classes were taken over by Omaha 4, whose uninstaller deleted them. So we
     # recognize the ProgIDs by name. They are not split by view:
-    _delete_progids(root, r'SOFTWARE\Classes', 'BraveSoftwareUpdate.')
+    keys += _find_progids(root, r'SOFTWARE\Classes', 'BraveSoftwareUpdate.')
+    return [(root, key) for key in keys]
 
 
-def _delete_com_registrations(root, classes_key, dir_path):
+def _find_com_registrations(root, classes_key, dir_path):
     """
-    Deletes the classes whose server lies in dir_path, and the interfaces
-    that use one of them as their proxy/stub.
+    Returns the keys of the classes whose server lies in dir_path, and of the
+    interfaces that use one of them as their proxy/stub.
     """
     prefix = dir_path.lower() + '\\'
     clsids = set()
@@ -205,6 +212,7 @@ def _delete_com_registrations(root, classes_key, dir_path):
             # LocalServer32 values can be quoted and contain arguments:
             if path.lstrip('"').lower().startswith(prefix):
                 clsids.add(clsid.upper())
+    result = []
     for iid in _list_subkeys_if_exists(root, rf'{classes_key}\Interface'):
         interface_key = rf'{classes_key}\Interface\{iid}'
         try:
@@ -214,15 +222,18 @@ def _delete_com_registrations(root, classes_key, dir_path):
         except FileNotFoundError:
             continue
         if proxy_stub.upper() in clsids:
-            registry.delete_key(root, interface_key)
+            result.append(interface_key)
     for clsid in clsids:
-        registry.delete_key(root, rf'{classes_key}\CLSID\{clsid}')
+        result.append(rf'{classes_key}\CLSID\{clsid}')
+    return result
 
 
-def _delete_progids(root, classes_key, prefix):
-    for name in _list_subkeys_if_exists(root, classes_key):
-        if name.lower().startswith(prefix.lower()):
-            registry.delete_key(root, rf'{classes_key}\{name}')
+def _find_progids(root, classes_key, prefix):
+    return [
+        rf'{classes_key}\{name}'
+        for name in _list_subkeys_if_exists(root, classes_key)
+        if name.lower().startswith(prefix.lower())
+    ]
 
 
 def _list_subkeys_if_exists(root, key):
