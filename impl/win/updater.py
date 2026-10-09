@@ -1,7 +1,7 @@
 from glob import glob
 from impl.app import App
 from impl.elevate import elevate
-from impl.win import registry
+from impl.win import registry, task_scheduler
 from impl.win.browser import UPDATE_LOG_PATH
 from os import listdir, remove
 from os.path import dirname, exists, join
@@ -61,14 +61,26 @@ class Omaha3(App):
 
     @property
     def has_remnants(self):
-        return bool(_find_run_values(self.is_system_level, OMAHA3_RUN_VALUE)) \
-            or _has_shared_remnants(self.is_system_level)
+        is_system_level = self.is_system_level
+        return bool(
+            _find_run_values(is_system_level, OMAHA3_RUN_VALUE)
+            or _find_omaha3_tasks(is_system_level)
+            or _has_shared_remnants(is_system_level)
+        )
 
     def delete_remnants(self):
         if self.is_system_level:
             elevate(_delete_omaha3_remnants, True)
         else:
             _delete_omaha3_remnants(False)
+
+    @property
+    def task_prefix(self):
+        # The tasks are in the root folder. Per-user tasks' names continue
+        # with the user's SID.
+        if self.is_system_level:
+            return 'BraveSoftwareUpdateTaskMachine'
+        return 'BraveSoftwareUpdateTaskUser'
 
     @property
     def exe(self):
@@ -122,10 +134,13 @@ class Omaha4(App):
 
     @property
     def has_remnants(self):
-        run_values = \
-            _find_run_values(self.is_system_level, OMAHA4_RUN_VALUE_PREFIX)
-        return exists(self.dir) or bool(run_values) \
-            or _has_shared_remnants(self.is_system_level)
+        is_system_level = self.is_system_level
+        return bool(
+            exists(self.dir)
+            or _find_run_values(is_system_level, OMAHA4_RUN_VALUE_PREFIX)
+            or any(_find_omaha4_tasks(is_system_level))
+            or _has_shared_remnants(is_system_level)
+        )
 
     def delete_remnants(self):
         if self.is_system_level:
@@ -140,6 +155,13 @@ class Omaha4(App):
         else:
             parent_dir = os.environ['LOCALAPPDATA']
         return join(parent_dir, 'BraveSoftware', 'BraveUpdater')
+
+    @property
+    def task_folder(self):
+        # The tasks are in its BraveUpdater subfolder:
+        if self.is_system_level:
+            return r'\BraveSoftwareSystem'
+        return r'\BraveSoftwareUser'
 
 
 UPDATERS = (Omaha3, Omaha4)
@@ -160,6 +182,7 @@ def _uninstall_omaha3(is_system_level):
 
 def _delete_omaha3_remnants(is_system_level):
     _delete_run_values(is_system_level, OMAHA3_RUN_VALUE)
+    _delete_tasks(_find_omaha3_tasks(is_system_level))
     _delete_shared_remnants(is_system_level)
 
 
@@ -180,7 +203,59 @@ def _uninstall_omaha4(is_system_level):
 def _delete_omaha4_remnants(is_system_level):
     _delete_dir(Omaha4(is_system_level).dir)
     _delete_run_values(is_system_level, OMAHA4_RUN_VALUE_PREFIX)
+    _delete_tasks(*_find_omaha4_tasks(is_system_level))
     _delete_shared_remnants(is_system_level)
+
+
+def _find_omaha3_tasks(is_system_level):
+    prefix = Omaha3(is_system_level).task_prefix.lower()
+    tasks, _ = task_scheduler.list_folder('\\')
+    return [
+        path for path, is_current_user in tasks
+        if path[1:].lower().startswith(prefix)
+        # An elevated process also sees other users' tasks:
+        and (is_system_level or is_current_user)
+    ]
+
+
+def _find_omaha4_tasks(is_system_level):
+    folder = Omaha4(is_system_level).task_folder
+    return _find_tasks_recursively(folder, is_system_level)
+
+
+def _find_tasks_recursively(folder, is_system_level):
+    """
+    Returns the tasks of the given scope in the folder and its subfolders, and
+    the folders that are empty once those tasks are deleted. Subfolders come
+    before their parents.
+    """
+    listing = task_scheduler.list_folder(folder)
+    if listing is None:
+        return [], []
+    tasks, subfolders = listing
+    result_tasks, result_folders = [], []
+    for subfolder in subfolders:
+        sub_tasks, sub_folders = \
+            _find_tasks_recursively(subfolder, is_system_level)
+        result_tasks += sub_tasks
+        result_folders += sub_folders
+    # All users' per-user installations share the folder. An elevated process
+    # also sees the other users' tasks:
+    own_tasks = [
+        path for path, is_current_user in tasks
+        if is_system_level or is_current_user
+    ]
+    result_tasks += own_tasks
+    if len(own_tasks) == len(tasks) and set(subfolders) <= set(result_folders):
+        result_folders.append(folder)
+    return result_tasks, result_folders
+
+
+def _delete_tasks(tasks, folders=()):
+    for path in tasks:
+        task_scheduler.delete_task(path)
+    for path in folders:
+        task_scheduler.delete_folder(path)
 
 
 def _find_run_values(is_system_level, prefix):

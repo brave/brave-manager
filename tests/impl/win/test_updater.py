@@ -1,12 +1,14 @@
 from impl.win.registry import delete_key
 from impl.win.updater import (
-    _delete_dir, _find_com_registrations, _find_progids
+    _delete_dir, _find_com_registrations, _find_progids,
+    _find_tasks_recursively
 )
 from os import mkdir
 from os.path import exists, join
 from tempfile import TemporaryDirectory
 from threading import Timer
 from unittest import TestCase
+from unittest.mock import patch
 from winreg import HKEY_CURRENT_USER, CreateKey, SetValue, REG_SZ
 
 KEY = r'SOFTWARE\brave-manager-test'
@@ -62,6 +64,33 @@ class FindProgidsTest(TestCase):
             KEY + r'\BraveSoftwareUpdate.Update3COMClassUser.1.0',
             KEY + r'\bravesoftwareupdate.PolicyStatusUser'
         ], sorted(keys))
+
+class FindTasksRecursivelyTest(TestCase):
+    # Maps each folder to its tasks and subfolders, like list_folder(...). The
+    # booleans say whether a task runs as the current user.
+    FOLDERS = {
+        r'\C': ([(r'\C\mine', True)], [r'\C\A', r'\C\B']),
+        r'\C\A': ([(r'\C\A\mine', True)], []),
+        r'\C\B': ([(r'\C\B\other', False)], [])
+    }
+    def test_user(self):
+        # \C\B holds another user's task. So it and \C must stay:
+        self.assertEqual(
+            ([r'\C\A\mine', r'\C\mine'], [r'\C\A']), self._find(r'\C', False)
+        )
+    def test_system(self):
+        self.assertEqual(
+            (
+                [r'\C\A\mine', r'\C\B\other', r'\C\mine'],
+                [r'\C\A', r'\C\B', r'\C']
+            ),
+            self._find(r'\C', True)
+        )
+    def test_no_folder(self):
+        self.assertEqual(([], []), self._find(r'\X', False))
+    def _find(self, folder, is_system_level):
+        with patch('impl.win.task_scheduler.list_folder', self.FOLDERS.get):
+            return _find_tasks_recursively(folder, is_system_level)
 
 class DeleteDirTest(TestCase):
     def test_retries_while_file_is_locked(self):
