@@ -8,6 +8,7 @@ from os.path import dirname, exists, join
 from shutil import rmtree
 from subprocess import run
 from tempfile import gettempdir
+from time import monotonic, sleep
 from winreg import HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE
 
 import os
@@ -137,8 +138,21 @@ def _uninstall_omaha4(is_system_level):
         if is_system_level:
             command.append('--system')
         run(command, check=True)
-    rmtree(omaha4.dir, ignore_errors=True)
+    _delete_dir(omaha4.dir)
     _delete_omaha4_takeover_remnants(is_system_level)
+
+
+def _delete_dir(path, timeout_seconds=30):
+    # The uninstaller's crash handler keeps updater.exe locked for a moment
+    # after the uninstaller has exited. So we retry.
+    deadline = monotonic() + timeout_seconds
+    while exists(path):
+        try:
+            rmtree(path)
+        except OSError:
+            if monotonic() >= deadline:
+                raise
+            sleep(.5)
 
 
 def _delete_omaha4_takeover_remnants(is_system_level):
