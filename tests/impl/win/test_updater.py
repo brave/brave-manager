@@ -1,5 +1,7 @@
 from impl.win.registry import delete_key, list_subkeys
-from impl.win.updater import _delete_com_registrations, _delete_dir
+from impl.win.updater import (
+    _delete_com_registrations, _delete_dir, _delete_progids
+)
 from os import mkdir
 from os.path import exists, join
 from tempfile import TemporaryDirectory
@@ -37,6 +39,26 @@ class DeleteComRegistrationsTest(TestCase):
         SetValue(HKEY_CURRENT_USER, proxy_stub_key, REG_SZ, proxy_stub)
     def _list(self, subkey):
         return sorted(list_subkeys(HKEY_CURRENT_USER, KEY + subkey))
+
+class DeleteProgidsTest(TestCase):
+    def setUp(self):
+        for progid in (
+            'BraveSoftwareUpdate.Update3COMClassUser',
+            'BraveSoftwareUpdate.Update3COMClassUser.1.0',
+            'bravesoftwareupdate.PolicyStatusUser',
+            'BraveSoftwareUpdater.Other',
+            'Other'
+        ):
+            with CreateKey(HKEY_CURRENT_USER, rf'{KEY}\{progid}\CLSID'):
+                pass
+    def tearDown(self):
+        delete_key(HKEY_CURRENT_USER, KEY)
+    def test_delete_progids(self):
+        _delete_progids(HKEY_CURRENT_USER, KEY, 'BraveSoftwareUpdate.')
+        self.assertEqual(
+            ['BraveSoftwareUpdater.Other', 'Other'],
+            sorted(list_subkeys(HKEY_CURRENT_USER, KEY))
+        )
 
 class DeleteDirTest(TestCase):
     def test_retries_while_file_is_locked(self):

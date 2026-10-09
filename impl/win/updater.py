@@ -172,12 +172,17 @@ def _delete_omaha4_takeover_remnants(is_system_level):
 
 
 def _delete_omaha3_com_registrations(is_system_level):
-    # Deletes the COM registrations that point into Omaha 3's installation
-    # directory. 64-bit and 32-bit registrations live in separate views:
+    # Omaha 3's classes, and the interfaces they proxy, point into its
+    # installation directory. 64-bit and 32-bit registrations live in separate
+    # views:
     root = HKEY_LOCAL_MACHINE if is_system_level else HKEY_CURRENT_USER
     dir_path = dirname(Omaha3(is_system_level).exe)
     for classes_key in (r'SOFTWARE\Classes', r'SOFTWARE\Classes\WOW6432Node'):
         _delete_com_registrations(root, classes_key, dir_path)
+    # Omaha 3's ProgIDs point to classes, not into the directory. Some of those
+    # classes were taken over by Omaha 4, whose uninstaller deleted them. So we
+    # recognize the ProgIDs by name. They are not split by view:
+    _delete_progids(root, r'SOFTWARE\Classes', 'BraveSoftwareUpdate.')
 
 
 def _delete_com_registrations(root, classes_key, dir_path):
@@ -209,6 +214,12 @@ def _delete_com_registrations(root, classes_key, dir_path):
             registry.delete_key(root, interface_key)
     for clsid in clsids:
         registry.delete_key(root, rf'{classes_key}\CLSID\{clsid}')
+
+
+def _delete_progids(root, classes_key, prefix):
+    for name in _list_subkeys_if_exists(root, classes_key):
+        if name.lower().startswith(prefix.lower()):
+            registry.delete_key(root, rf'{classes_key}\{name}')
 
 
 def _list_subkeys_if_exists(root, key):
