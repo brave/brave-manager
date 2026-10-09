@@ -140,6 +140,11 @@ def _uninstall_omaha4(is_system_level):
         run(command, check=True)
     _delete_dir(omaha4.dir)
     _delete_omaha4_takeover_remnants(is_system_level)
+    # Omaha 3's uninstaller deletes its COM registrations, so _uninstall_omaha3
+    # does not need to. But Omaha 4's takeover removes Omaha 3 without running
+    # that uninstaller. The registrations then remain, pointing into Omaha 3's
+    # installation directory, which is gone by now.
+    _delete_omaha3_com_registrations(is_system_level)
 
 
 def _delete_dir(path, timeout_seconds=30):
@@ -164,6 +169,53 @@ def _delete_omaha4_takeover_remnants(is_system_level):
     omaha3 = Omaha3(is_system_level)
     registry.delete_key(*omaha3.registry_key)
     rmtree(dirname(omaha3.exe), ignore_errors=True)
+
+
+def _delete_omaha3_com_registrations(is_system_level):
+    # Deletes the COM registrations that point into Omaha 3's installation
+    # directory. 64-bit and 32-bit registrations live in separate views:
+    root = HKEY_LOCAL_MACHINE if is_system_level else HKEY_CURRENT_USER
+    dir_path = dirname(Omaha3(is_system_level).exe)
+    for classes_key in (r'SOFTWARE\Classes', r'SOFTWARE\Classes\WOW6432Node'):
+        _delete_com_registrations(root, classes_key, dir_path)
+
+
+def _delete_com_registrations(root, classes_key, dir_path):
+    """
+    Deletes the classes whose server lies in dir_path, and the interfaces
+    that use one of them as their proxy/stub.
+    """
+    prefix = dir_path.lower() + '\\'
+    clsids = set()
+    for clsid in _list_subkeys_if_exists(root, rf'{classes_key}\CLSID'):
+        for server in ('InprocServer32', 'InprocHandler32', 'LocalServer32'):
+            server_key = rf'{classes_key}\CLSID\{clsid}\{server}'
+            try:
+                path = registry.read_value(root, server_key, '')
+            except FileNotFoundError:
+                continue
+            # LocalServer32 values can be quoted and contain arguments:
+            if path.lstrip('"').lower().startswith(prefix):
+                clsids.add(clsid.upper())
+    for iid in _list_subkeys_if_exists(root, rf'{classes_key}\Interface'):
+        interface_key = rf'{classes_key}\Interface\{iid}'
+        try:
+            proxy_stub = registry.read_value(
+                root, rf'{interface_key}\ProxyStubClsid32', ''
+            )
+        except FileNotFoundError:
+            continue
+        if proxy_stub.upper() in clsids:
+            registry.delete_key(root, interface_key)
+    for clsid in clsids:
+        registry.delete_key(root, rf'{classes_key}\CLSID\{clsid}')
+
+
+def _list_subkeys_if_exists(root, key):
+    try:
+        return registry.list_subkeys(root, key)
+    except FileNotFoundError:
+        return []
 
 
 def _delete_omaha3_temp_files(is_system_level):
