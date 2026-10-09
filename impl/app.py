@@ -24,6 +24,15 @@ class App:
     def uninstall(self):
         raise NotImplementedError()
 
+    @property
+    def has_remnants(self):
+        # Eg. files or registry entries that a partial installation or an
+        # interrupted uninstall left behind.
+        return False
+
+    def delete_remnants(self):
+        raise NotImplementedError()
+
     def _with_details(self, text):
         return f'{text} ({", ".join(self._details)})'
 

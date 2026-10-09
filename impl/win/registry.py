@@ -4,6 +4,13 @@ def read_value(root, key, name):
     with OpenKey(root, key) as handle:
         return QueryValueEx(handle, name)[0]
 
+def key_exists(root, key):
+    try:
+        with OpenKey(root, key):
+            return True
+    except FileNotFoundError:
+        return False
+
 def list_subkeys(root, key):
     result = []
     with OpenKey(root, key) as handle:

@@ -12,6 +12,15 @@ class Uninstall:
         with print_done(f'Uninstalling {self.app}'):
             self.app.uninstall()
 
+class DeleteRemnants:
+    def __init__(self, app):
+        self.app = app
+    def __str__(self):
+        return f'Delete remnants of {self.app}'
+    def __call__(self):
+        with print_done(f'Deleting remnants of {self.app}'):
+            self.app.delete_remnants()
+
 class Install:
     def __init__(self, version, installer_url):
         self.version = version

@@ -54,6 +54,16 @@ class Omaha3(App):
             )
 
     @property
+    def has_remnants(self):
+        return _has_shared_remnants(self.is_system_level)
+
+    def delete_remnants(self):
+        if self.is_system_level:
+            elevate(_delete_shared_remnants, True)
+        else:
+            _delete_shared_remnants(False)
+
+    @property
     def exe(self):
         if self.is_system_level:
             parent_dir = os.environ['PROGRAMFILES(X86)']
@@ -104,6 +114,16 @@ class Omaha4(App):
             _uninstall_omaha4(False)
 
     @property
+    def has_remnants(self):
+        return exists(self.dir) or _has_shared_remnants(self.is_system_level)
+
+    def delete_remnants(self):
+        if self.is_system_level:
+            elevate(_delete_omaha4_remnants, True)
+        else:
+            _delete_omaha4_remnants(False)
+
+    @property
     def dir(self):
         if self.is_system_level:
             parent_dir = os.environ['PROGRAMFILES(X86)']
@@ -139,7 +159,11 @@ def _uninstall_omaha4(is_system_level):
         if is_system_level:
             command.append('--system')
         run(command, check=True)
-    _delete_dir(omaha4.dir)
+    _delete_omaha4_remnants(is_system_level)
+
+
+def _delete_omaha4_remnants(is_system_level):
+    _delete_dir(Omaha4(is_system_level).dir)
     _delete_shared_remnants(is_system_level)
 
 
@@ -156,6 +180,15 @@ def _delete_dir(path, timeout_seconds=30):
             sleep(.5)
 
 
+def _has_shared_remnants(is_system_level):
+    if _is_any_updater_installed(is_system_level):
+        return False
+    omaha3 = Omaha3(is_system_level)
+    return exists(dirname(omaha3.exe)) \
+        or registry.key_exists(*omaha3.registry_key) \
+        or bool(_find_omaha3_com_registrations(is_system_level))
+
+
 def _delete_shared_remnants(is_system_level):
     # Omaha 4's takeover writes its version into Omaha 3's registry key and puts
     # a copy of itself at BraveUpdate.exe. So the two updaters share Omaha 3's
@@ -163,7 +196,7 @@ def _delete_shared_remnants(is_system_level):
     # key completely. If Omaha 4's version remains in it, Omaha 3's installer
     # refuses to install itself. So we delete the key, together with the
     # directory, once neither updater is installed anymore:
-    if any(updater(is_system_level).is_installed for updater in UPDATERS):
+    if _is_any_updater_installed(is_system_level):
         return
     omaha3 = Omaha3(is_system_level)
     registry.delete_key(*omaha3.registry_key)
@@ -172,6 +205,10 @@ def _delete_shared_remnants(is_system_level):
     # takeover removes Omaha 3 without running that uninstaller. The
     # registrations then remain, pointing into the directory we just deleted.
     _delete_omaha3_com_registrations(is_system_level)
+
+
+def _is_any_updater_installed(is_system_level):
+    return any(updater(is_system_level).is_installed for updater in UPDATERS)
 
 
 def _delete_omaha3_com_registrations(is_system_level):

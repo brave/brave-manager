@@ -1,6 +1,8 @@
 from argparse import ArgumentParser
 from impl import brave, cache, updater
-from impl.actions import Uninstall, Launch, ClearCache, DeleteProfile
+from impl.actions import (
+    Uninstall, Launch, ClearCache, DeleteProfile, DeleteRemnants
+)
 from impl.brave import PRODUCTS
 from impl.browser import Browser
 from impl.updater import UPDATERS
@@ -80,13 +82,19 @@ def uninstall(product, channel, delete_profile):
             print(f'{app.title} has no profile.')
 
 def uninstall_updaters(updaters):
-    installed = [
-        app for updater in updaters for app in updater.get_apps()
-        if app.is_installed
-    ]
+    apps = [app for updater in updaters for app in updater.get_apps()]
+    installed = [app for app in apps if app.is_installed]
     for app in installed:
         Uninstall(app)()
-    if not installed:
+    # Partial installations and interrupted uninstalls leave remnants behind.
+    # Deleting one updater's remnants can delete another's. So we check each
+    # updater just before:
+    with_remnants = []
+    for app in apps:
+        if app.has_remnants:
+            DeleteRemnants(app)()
+            with_remnants.append(app)
+    if not installed and not with_remnants:
         print('No updaters are installed.')
 
 def run_interactively():
