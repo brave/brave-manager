@@ -125,6 +125,7 @@ def _uninstall_omaha3(is_system_level):
             registry.delete_key(root, rf'{key}\Clients\{guid}')
     run([omaha3.exe, '/uninstall'])
     _delete_omaha3_temp_files(is_system_level)
+    _delete_shared_remnants(is_system_level)
 
 
 def _uninstall_omaha4(is_system_level):
@@ -139,12 +140,7 @@ def _uninstall_omaha4(is_system_level):
             command.append('--system')
         run(command, check=True)
     _delete_dir(omaha4.dir)
-    _delete_omaha4_takeover_remnants(is_system_level)
-    # Omaha 3's uninstaller deletes its COM registrations, so _uninstall_omaha3
-    # does not need to. But Omaha 4's takeover removes Omaha 3 without running
-    # that uninstaller. The registrations then remain, pointing into Omaha 3's
-    # installation directory, which is gone by now.
-    _delete_omaha3_com_registrations(is_system_level)
+    _delete_shared_remnants(is_system_level)
 
 
 def _delete_dir(path, timeout_seconds=30):
@@ -160,15 +156,22 @@ def _delete_dir(path, timeout_seconds=30):
             sleep(.5)
 
 
-def _delete_omaha4_takeover_remnants(is_system_level):
+def _delete_shared_remnants(is_system_level):
     # Omaha 4's takeover writes its version into Omaha 3's registry key and puts
-    # a copy of itself at BraveUpdate.exe. Its uninstaller does not clean these
-    # up. Omaha 3's installer would then refuse to install itself. The key also
-    # keeps Omaha 3's own state, Omaha 4's registration and those of the apps.
-    # Omaha 3's uninstaller deletes all of these, so we delete the whole key:
+    # a copy of itself at BraveUpdate.exe. So the two updaters share Omaha 3's
+    # key and installation directory. Neither updater's uninstaller deletes the
+    # key completely. If Omaha 4's version remains in it, Omaha 3's installer
+    # refuses to install itself. So we delete the key, together with the
+    # directory, once neither updater is installed anymore:
+    if any(updater(is_system_level).is_installed for updater in UPDATERS):
+        return
     omaha3 = Omaha3(is_system_level)
     registry.delete_key(*omaha3.registry_key)
     rmtree(dirname(omaha3.exe), ignore_errors=True)
+    # Omaha 3's uninstaller deletes its COM registrations. But Omaha 4's
+    # takeover removes Omaha 3 without running that uninstaller. The
+    # registrations then remain, pointing into the directory we just deleted.
+    _delete_omaha3_com_registrations(is_system_level)
 
 
 def _delete_omaha3_com_registrations(is_system_level):
