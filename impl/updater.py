@@ -5,8 +5,8 @@ if sys.platform == 'win32':
 else:
     from impl.mac.updater import UPDATERS
 
-def get_installed_updaters():
+def get_updaters_to_uninstall():
     return [
         app for updater in UPDATERS for app in updater.get_apps()
-        if app.is_installed
+        if app.is_installed or app.has_remnants
     ]

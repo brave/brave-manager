@@ -141,14 +141,17 @@ def run_interactively():
             Launch(app)()
             return
         elif main_action == 'uninstall_updater':
-            installed_updaters = updater.get_installed_updaters()
-            if not installed_updaters:
+            updaters = updater.get_updaters_to_uninstall()
+            if not updaters:
                 print("You don't have any updaters installed.")
                 return
-            to_uninstall = ask_which_updater_to_uninstall(installed_updaters)
+            to_uninstall = ask_which_updater_to_uninstall(updaters)
             if not to_uninstall:
                 return
-            actions.append(Uninstall(to_uninstall))
+            if to_uninstall.is_installed:
+                actions.append(Uninstall(to_uninstall))
+            else:
+                actions.append(DeleteRemnants(to_uninstall))
         elif main_action == 'clear_cache':
             actions.append(ClearCache())
         if ask_confirm_actions(actions):
@@ -274,9 +277,12 @@ def ask_which_profile_to_delete(apps):
         raise KeyboardInterrupt
     return choices[choice]
 
-def ask_which_updater_to_uninstall(installed_updaters):
+def ask_which_updater_to_uninstall(updaters):
     message = 'Which updater do you want to uninstall?'
-    choices = {str(app): app for app in installed_updaters}
+    choices = {
+        str(app) if app.is_installed else f'Remnants of {app}': app
+        for app in updaters
+    }
     choice = select(message, choices)
     if choice is None:
         raise KeyboardInterrupt
