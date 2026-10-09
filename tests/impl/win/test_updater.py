@@ -1,9 +1,9 @@
 from impl.win.registry import delete_key
 from impl.win.updater import (
     _delete_dir, _find_com_registrations, _find_progids,
-    _find_tasks_recursively
+    _find_tasks_recursively, _is_omaha3_service, _is_omaha4_service
 )
-from os import mkdir
+from os import environ, mkdir
 from os.path import exists, join
 from tempfile import TemporaryDirectory
 from threading import Timer
@@ -91,6 +91,37 @@ class FindTasksRecursivelyTest(TestCase):
     def _find(self, folder, is_system_level):
         with patch('impl.win.task_scheduler.list_folder', self.FOLDERS.get):
             return _find_tasks_recursively(folder, is_system_level)
+
+class IsServiceTest(TestCase):
+    BRAVE_SOFTWARE = join(environ['PROGRAMFILES(X86)'], 'BraveSoftware')
+    def test_omaha3_by_name(self):
+        # Like the services that Omaha 4's integration tests create:
+        self.assertTrue(_is_omaha3_service(
+            'bravem', 'Brave Update Service', r'C:\temp\temp.exe'
+        ))
+    def test_omaha3_by_path(self):
+        # With a localized display name:
+        self.assertTrue(_is_omaha3_service(
+            'brave', 'Service Brave Update (brave)',
+            rf'"{self.BRAVE_SOFTWARE}\Update\BraveUpdate.exe" /svc'
+        ))
+    def test_omaha4(self):
+        args = (
+            'BraveUpdaterService155.1.99.19', 'BraveUpdater Service',
+            rf'"{self.BRAVE_SOFTWARE}\BraveUpdater\155.1.99.19\updater.exe" '
+            '--system --windows-service'
+        )
+        self.assertTrue(_is_omaha4_service(*args))
+        self.assertFalse(_is_omaha3_service(*args))
+    def test_browser(self):
+        args = (
+            'BraveElevationService',
+            'Brave Elevation Service (BraveElevationService)',
+            r'"C:\Program Files\BraveSoftware\Brave-Browser\Application'
+            r'\155.1.97.56\elevation_service.exe"'
+        )
+        self.assertFalse(_is_omaha3_service(*args))
+        self.assertFalse(_is_omaha4_service(*args))
 
 class DeleteDirTest(TestCase):
     def test_retries_while_file_is_locked(self):

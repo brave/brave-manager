@@ -12,6 +12,8 @@ from time import monotonic, sleep
 from winreg import HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE
 
 import os
+import win32con
+import win32service
 
 OMAHA3_GUID = '{B131C935-9BE6-41DA-9599-1F776BEB8019}'
 
@@ -20,6 +22,9 @@ RUN_KEY = r'SOFTWARE\Microsoft\Windows\CurrentVersion\Run'
 OMAHA3_RUN_VALUE = 'BraveSoftware Update'
 # Followed by the version:
 OMAHA4_RUN_VALUE_PREFIX = 'BraveUpdaterTaskUser'
+
+# System-wide installations register services:
+SERVICES_KEY = r'SYSTEM\CurrentControlSet\Services'
 
 
 class Omaha3(App):
@@ -65,6 +70,7 @@ class Omaha3(App):
         return bool(
             _find_run_values(is_system_level, OMAHA3_RUN_VALUE)
             or _find_omaha3_tasks(is_system_level)
+            or _find_services(is_system_level, _is_omaha3_service)
             or _has_shared_remnants(is_system_level)
         )
 
@@ -139,6 +145,7 @@ class Omaha4(App):
             exists(self.dir)
             or _find_run_values(is_system_level, OMAHA4_RUN_VALUE_PREFIX)
             or any(_find_omaha4_tasks(is_system_level))
+            or _find_services(is_system_level, _is_omaha4_service)
             or _has_shared_remnants(is_system_level)
         )
 
@@ -183,6 +190,7 @@ def _uninstall_omaha3(is_system_level):
 def _delete_omaha3_remnants(is_system_level):
     _delete_run_values(is_system_level, OMAHA3_RUN_VALUE)
     _delete_tasks(_find_omaha3_tasks(is_system_level))
+    _delete_services(_find_services(is_system_level, _is_omaha3_service))
     _delete_shared_remnants(is_system_level)
 
 
@@ -204,7 +212,65 @@ def _delete_omaha4_remnants(is_system_level):
     _delete_dir(Omaha4(is_system_level).dir)
     _delete_run_values(is_system_level, OMAHA4_RUN_VALUE_PREFIX)
     _delete_tasks(*_find_omaha4_tasks(is_system_level))
+    _delete_services(_find_services(is_system_level, _is_omaha4_service))
     _delete_shared_remnants(is_system_level)
+
+
+def _find_services(is_system_level, is_match):
+    if not is_system_level:
+        return []
+    result = []
+    for name in registry.list_subkeys(HKEY_LOCAL_MACHINE, SERVICES_KEY):
+        key = rf'{SERVICES_KEY}\{name}'
+        display_name, image_path = (
+            _read_string(HKEY_LOCAL_MACHINE, key, value_name)
+            for value_name in ('DisplayName', 'ImagePath')
+        )
+        if is_match(name, display_name, image_path):
+            result.append(name)
+    return result
+
+
+def _is_omaha3_service(name, display_name, image_path):
+    # This is how Omaha 4 recognizes Omaha 3's services when it takes over. Its
+    # integration tests create such services with an unrelated image path.
+    # But Omaha 3 takes the display name from its localized resources. So we
+    # also check the path:
+    return (
+        name.startswith('brave')
+        and display_name.startswith('Brave Update Service')
+    ) or _is_in_dir(image_path, dirname(Omaha3(True).exe))
+
+
+def _is_omaha4_service(name, display_name, image_path):
+    return _is_in_dir(image_path, Omaha4(True).dir)
+
+
+def _is_in_dir(command_line, dir_path):
+    # The executable path in a command line can be quoted:
+    return command_line.lstrip('"').lower().startswith(dir_path.lower() + '\\')
+
+
+def _delete_services(names):
+    scm = win32service.OpenSCManager(
+        None, None, win32service.SC_MANAGER_CONNECT
+    )
+    try:
+        for name in names:
+            service = win32service.OpenService(scm, name, win32con.DELETE)
+            try:
+                win32service.DeleteService(service)
+            finally:
+                win32service.CloseServiceHandle(service)
+    finally:
+        win32service.CloseServiceHandle(scm)
+
+
+def _read_string(root, key, name):
+    try:
+        return str(registry.read_value(root, key, name))
+    except FileNotFoundError:
+        return ''
 
 
 def _find_omaha3_tasks(is_system_level):
