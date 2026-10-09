@@ -106,7 +106,7 @@ class Omaha4(App):
     @property
     def dir(self):
         if self.is_system_level:
-            parent_dir = os.environ['PROGRAMDATA']
+            parent_dir = os.environ['PROGRAMFILES(X86)']
         else:
             parent_dir = os.environ['LOCALAPPDATA']
         return join(parent_dir, 'BraveSoftware', 'BraveUpdater')
