@@ -24,14 +24,20 @@ class FindComRegistrationsTest(TestCase):
         self._add_interface('{2}', '{C}')
         with CreateKey(HKEY_CURRENT_USER, KEY + r'\Interface\{3}'):
             pass
+        # Like Omaha 4: interfaces marshaled via their type libraries.
+        ole_automation = '{00020424-0000-0000-C000-000000000046}'
+        self._add_type_library('{T}', r'C:\Update\1.3\updater.exe\3')
+        self._add_type_library('{U}', r'C:\Other\updater.exe\3')
+        self._add_interface('{4}', ole_automation, typelib='{t}')
+        self._add_interface('{5}', ole_automation, typelib='{U}')
     def tearDown(self):
         delete_key(HKEY_CURRENT_USER, KEY)
     def test_find_com_registrations(self):
         keys = _find_com_registrations(HKEY_CURRENT_USER, KEY, r'C:\Update')
-        self.assertEqual(
-            [KEY + r'\CLSID\{A}', KEY + r'\CLSID\{B}', KEY + r'\Interface\{1}'],
-            sorted(keys)
-        )
+        self.assertEqual([
+            KEY + r'\CLSID\{A}', KEY + r'\CLSID\{B}', KEY + r'\Interface\{1}',
+            KEY + r'\Interface\{4}', KEY + r'\TypeLib\{T}'
+        ], sorted(keys))
     def test_no_classes(self):
         delete_key(HKEY_CURRENT_USER, KEY)
         self.assertEqual(
@@ -40,9 +46,19 @@ class FindComRegistrationsTest(TestCase):
     def _add_class(self, clsid, server, path):
         server_key = KEY + rf'\CLSID\{clsid}\{server}'
         SetValue(HKEY_CURRENT_USER, server_key, REG_SZ, path)
-    def _add_interface(self, iid, proxy_stub):
-        proxy_stub_key = KEY + rf'\Interface\{iid}\ProxyStubClsid32'
-        SetValue(HKEY_CURRENT_USER, proxy_stub_key, REG_SZ, proxy_stub)
+    def _add_interface(self, iid, proxy_stub, typelib=None):
+        interface_key = KEY + rf'\Interface\{iid}'
+        SetValue(
+            HKEY_CURRENT_USER, interface_key + r'\ProxyStubClsid32', REG_SZ,
+            proxy_stub
+        )
+        if typelib:
+            SetValue(
+                HKEY_CURRENT_USER, interface_key + r'\TypeLib', REG_SZ, typelib
+            )
+    def _add_type_library(self, libid, path):
+        key = KEY + rf'\TypeLib\{libid}\1.0\0\win64'
+        SetValue(HKEY_CURRENT_USER, key, REG_SZ, path)
 
 class FindProgidsTest(TestCase):
     def setUp(self):

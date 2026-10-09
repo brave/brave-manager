@@ -26,6 +26,9 @@ OMAHA4_RUN_VALUE_PREFIX = 'BraveUpdaterTaskUser'
 # System-wide installations register services:
 SERVICES_KEY = r'SYSTEM\CurrentControlSet\Services'
 
+# 64-bit and 32-bit COM registrations live in separate views:
+CLASSES_KEYS = (r'SOFTWARE\Classes', r'SOFTWARE\Classes\WOW6432Node')
+
 
 class Omaha3(App):
     """
@@ -146,6 +149,7 @@ class Omaha4(App):
             or _find_run_values(is_system_level, OMAHA4_RUN_VALUE_PREFIX)
             or any(_find_omaha4_tasks(is_system_level))
             or _find_services(is_system_level, _is_omaha4_service)
+            or _find_omaha4_com_registrations(is_system_level)
             or _has_shared_remnants(is_system_level)
         )
 
@@ -213,6 +217,7 @@ def _delete_omaha4_remnants(is_system_level):
     _delete_run_values(is_system_level, OMAHA4_RUN_VALUE_PREFIX)
     _delete_tasks(*_find_omaha4_tasks(is_system_level))
     _delete_services(_find_services(is_system_level, _is_omaha4_service))
+    _delete_omaha4_com_registrations(is_system_level)
     _delete_shared_remnants(is_system_level)
 
 
@@ -394,6 +399,23 @@ def _is_any_updater_installed(is_system_level):
     return any(updater(is_system_level).is_installed for updater in UPDATERS)
 
 
+def _delete_omaha4_com_registrations(is_system_level):
+    for root, key in _find_omaha4_com_registrations(is_system_level):
+        registry.delete_key(root, key)
+
+
+def _find_omaha4_com_registrations(is_system_level):
+    # Omaha 4's classes, and the type libraries of its interfaces, point into
+    # its installation directory:
+    root = HKEY_LOCAL_MACHINE if is_system_level else HKEY_CURRENT_USER
+    dir_path = Omaha4(is_system_level).dir
+    return [
+        (root, key)
+        for classes_key in CLASSES_KEYS
+        for key in _find_com_registrations(root, classes_key, dir_path)
+    ]
+
+
 def _delete_omaha3_com_registrations(is_system_level):
     for root, key in _find_omaha3_com_registrations(is_system_level):
         registry.delete_key(root, key)
@@ -401,12 +423,11 @@ def _delete_omaha3_com_registrations(is_system_level):
 
 def _find_omaha3_com_registrations(is_system_level):
     # Omaha 3's classes, and the interfaces they proxy, point into its
-    # installation directory. 64-bit and 32-bit registrations live in separate
-    # views:
+    # installation directory:
     root = HKEY_LOCAL_MACHINE if is_system_level else HKEY_CURRENT_USER
     dir_path = dirname(Omaha3(is_system_level).exe)
     keys = []
-    for classes_key in (r'SOFTWARE\Classes', r'SOFTWARE\Classes\WOW6432Node'):
+    for classes_key in CLASSES_KEYS:
         keys += _find_com_registrations(root, classes_key, dir_path)
     # Omaha 3's ProgIDs point to classes, not into the directory. Some of those
     # classes were taken over by Omaha 4, whose uninstaller deleted them. So we
@@ -417,35 +438,46 @@ def _find_omaha3_com_registrations(is_system_level):
 
 def _find_com_registrations(root, classes_key, dir_path):
     """
-    Returns the keys of the classes whose server lies in dir_path, and of the
-    interfaces that use one of them as their proxy/stub.
+    Returns the keys of the classes whose server lies in dir_path, of the type
+    libraries in dir_path, and of the interfaces that use one of them.
     """
-    prefix = dir_path.lower() + '\\'
     clsids = set()
     for clsid in _list_subkeys_if_exists(root, rf'{classes_key}\CLSID'):
         for server in ('InprocServer32', 'InprocHandler32', 'LocalServer32'):
             server_key = rf'{classes_key}\CLSID\{clsid}\{server}'
-            try:
-                path = registry.read_value(root, server_key, '')
-            except FileNotFoundError:
-                continue
-            # LocalServer32 values can be quoted and contain arguments:
-            if path.lstrip('"').lower().startswith(prefix):
+            if _is_in_dir(_read_string(root, server_key, ''), dir_path):
                 clsids.add(clsid.upper())
+    libids = set()
+    for libid in _list_subkeys_if_exists(root, rf'{classes_key}\TypeLib'):
+        typelib_key = rf'{classes_key}\TypeLib\{libid}'
+        if _is_type_library_in_dir(root, typelib_key, dir_path):
+            libids.add(libid.upper())
     result = []
     for iid in _list_subkeys_if_exists(root, rf'{classes_key}\Interface'):
         interface_key = rf'{classes_key}\Interface\{iid}'
-        try:
-            proxy_stub = registry.read_value(
-                root, rf'{interface_key}\ProxyStubClsid32', ''
-            )
-        except FileNotFoundError:
-            continue
-        if proxy_stub.upper() in clsids:
+        proxy_stub = \
+            _read_string(root, rf'{interface_key}\ProxyStubClsid32', '')
+        typelib = _read_string(root, rf'{interface_key}\TypeLib', '')
+        if proxy_stub.upper() in clsids or typelib.upper() in libids:
             result.append(interface_key)
     for clsid in clsids:
         result.append(rf'{classes_key}\CLSID\{clsid}')
+    for libid in libids:
+        result.append(rf'{classes_key}\TypeLib\{libid}')
     return result
+
+
+def _is_type_library_in_dir(root, key, dir_path):
+    # The paths are at <version>\<LCID>\<platform>, eg. 1.0\0\win64:
+    for version in _list_subkeys_if_exists(root, key):
+        version_key = rf'{key}\{version}'
+        for lcid in _list_subkeys_if_exists(root, version_key):
+            lcid_key = rf'{version_key}\{lcid}'
+            for platform in _list_subkeys_if_exists(root, lcid_key):
+                path = _read_string(root, rf'{lcid_key}\{platform}', '')
+                if _is_in_dir(path, dir_path):
+                    return True
+    return False
 
 
 def _find_progids(root, classes_key, prefix):
