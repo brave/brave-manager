@@ -185,7 +185,10 @@ def _has_shared_remnants(is_system_level):
         return False
     omaha3 = Omaha3(is_system_level)
     return exists(dirname(omaha3.exe)) \
-        or registry.key_exists(*omaha3.registry_key) \
+        or any(
+            registry.key_exists(root, key)
+            for root, key in _get_shared_registry_keys(is_system_level)
+        ) \
         or bool(_find_omaha3_com_registrations(is_system_level))
 
 
@@ -198,13 +201,24 @@ def _delete_shared_remnants(is_system_level):
     # directory, once neither updater is installed anymore:
     if _is_any_updater_installed(is_system_level):
         return
-    omaha3 = Omaha3(is_system_level)
-    registry.delete_key(*omaha3.registry_key)
-    rmtree(dirname(omaha3.exe), ignore_errors=True)
+    for root, key in _get_shared_registry_keys(is_system_level):
+        registry.delete_key(root, key)
+    rmtree(dirname(Omaha3(is_system_level).exe), ignore_errors=True)
     # Omaha 3's uninstaller deletes its COM registrations. But Omaha 4's
     # takeover removes Omaha 3 without running that uninstaller. The
     # registrations then remain, pointing into the directory we just deleted.
     _delete_omaha3_com_registrations(is_system_level)
+
+
+def _get_shared_registry_keys(is_system_level):
+    root, key = Omaha3(is_system_level).registry_key
+    result = [(root, key)]
+    # Omaha 4's takeover also imports apps registered in the 64-bit view of
+    # HKLM. Its integration tests create such registrations. HKCU\SOFTWARE is
+    # not split by view.
+    if is_system_level:
+        result.append((root, r'SOFTWARE\BraveSoftware\Update'))
+    return result
 
 
 def _is_any_updater_installed(is_system_level):
