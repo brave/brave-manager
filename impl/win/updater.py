@@ -15,6 +15,12 @@ import os
 
 OMAHA3_GUID = '{B131C935-9BE6-41DA-9599-1F776BEB8019}'
 
+# Per-user installations start at logon via values in this key:
+RUN_KEY = r'SOFTWARE\Microsoft\Windows\CurrentVersion\Run'
+OMAHA3_RUN_VALUE = 'BraveSoftware Update'
+# Followed by the version:
+OMAHA4_RUN_VALUE_PREFIX = 'BraveUpdaterTaskUser'
+
 
 class Omaha3(App):
     """
@@ -55,13 +61,14 @@ class Omaha3(App):
 
     @property
     def has_remnants(self):
-        return _has_shared_remnants(self.is_system_level)
+        return bool(_find_run_values(self.is_system_level, OMAHA3_RUN_VALUE)) \
+            or _has_shared_remnants(self.is_system_level)
 
     def delete_remnants(self):
         if self.is_system_level:
-            elevate(_delete_shared_remnants, True)
+            elevate(_delete_omaha3_remnants, True)
         else:
-            _delete_shared_remnants(False)
+            _delete_omaha3_remnants(False)
 
     @property
     def exe(self):
@@ -115,7 +122,10 @@ class Omaha4(App):
 
     @property
     def has_remnants(self):
-        return exists(self.dir) or _has_shared_remnants(self.is_system_level)
+        run_values = \
+            _find_run_values(self.is_system_level, OMAHA4_RUN_VALUE_PREFIX)
+        return exists(self.dir) or bool(run_values) \
+            or _has_shared_remnants(self.is_system_level)
 
     def delete_remnants(self):
         if self.is_system_level:
@@ -145,6 +155,11 @@ def _uninstall_omaha3(is_system_level):
             registry.delete_key(root, rf'{key}\Clients\{guid}')
     run([omaha3.exe, '/uninstall'])
     _delete_omaha3_temp_files(is_system_level)
+    _delete_omaha3_remnants(is_system_level)
+
+
+def _delete_omaha3_remnants(is_system_level):
+    _delete_run_values(is_system_level, OMAHA3_RUN_VALUE)
     _delete_shared_remnants(is_system_level)
 
 
@@ -164,7 +179,20 @@ def _uninstall_omaha4(is_system_level):
 
 def _delete_omaha4_remnants(is_system_level):
     _delete_dir(Omaha4(is_system_level).dir)
+    _delete_run_values(is_system_level, OMAHA4_RUN_VALUE_PREFIX)
     _delete_shared_remnants(is_system_level)
+
+
+def _find_run_values(is_system_level, prefix):
+    if is_system_level:
+        return []
+    names = registry.list_values(HKEY_CURRENT_USER, RUN_KEY)
+    return [name for name in names if name.lower().startswith(prefix.lower())]
+
+
+def _delete_run_values(is_system_level, prefix):
+    for name in _find_run_values(is_system_level, prefix):
+        registry.delete_value(HKEY_CURRENT_USER, RUN_KEY, name)
 
 
 def _delete_dir(path, timeout_seconds=30):

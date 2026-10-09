@@ -1,4 +1,7 @@
-from winreg import OpenKey, EnumKey, DeleteKey, QueryValueEx
+from winreg import (
+    OpenKey, EnumKey, EnumValue, DeleteKey, DeleteValue, QueryValueEx,
+    KEY_SET_VALUE
+)
 
 def read_value(root, key, name):
     with OpenKey(root, key) as handle:
@@ -20,6 +23,15 @@ def list_subkeys(root, key):
             except OSError:
                 return result
 
+def list_values(root, key):
+    result = []
+    with OpenKey(root, key) as handle:
+        while True:
+            try:
+                result.append(EnumValue(handle, len(result))[0])
+            except OSError:
+                return result
+
 def delete_key(root, key):
     try:
         handle = OpenKey(root, key)
@@ -33,3 +45,14 @@ def delete_key(root, key):
                 break
             delete_key(handle, subkey)
     DeleteKey(root, key)
+
+def delete_value(root, key, name):
+    try:
+        handle = OpenKey(root, key, 0, KEY_SET_VALUE)
+    except FileNotFoundError:
+        return
+    with handle:
+        try:
+            DeleteValue(handle, name)
+        except FileNotFoundError:
+            pass
